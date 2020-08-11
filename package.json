@@ -1,0 +1,29 @@
+{
+  "name": "radicle-registry",
+  "license": "ISC",
+  "dependencies": {},
+  "devDependencies": {
+    "@nomiclabs/buidler": "^1.4.3",
+    "@nomiclabs/buidler-ethers": "^2.0.0",
+    "@nomiclabs/buidler-waffle": "^2.0.0",
+    "@openzeppelin/contracts": "^3.1.0",
+    "@typechain/ethers-v5": "^1.0.0",
+    "@types/mocha": "^8.0.1",
+    "chai": "^4.2.0",
+    "ethers": "^5.0.7",
+    "mocha": "^8.1.0",
+    "prettier": "^2.0.5",
+    "prettier-plugin-solidity": "^1.0.0-alpha.55",
+    "ts-generator": "^0.0.8",
+    "ts-node": "^8.10.2",
+    "typechain": "^2.0.0",
+    "typescript": "^3.9.7"
+  },
+  "scripts": {
+    "build": "buidler compile && tsc",
+    "test": "buidler test",
+    "lint": "yarn run lint:prettier && yarn run lint:solhint",
+    "lint:solhint": "solhint --max-warnings=0 $(git ls-files | grep -E '\\.sol$')",
+    "lint:prettier": "prettier --check $(git ls-files | grep -E '\\.(sol|ts|js)$')"
+  }
+}
