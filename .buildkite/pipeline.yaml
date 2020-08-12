@@ -1,0 +1,23 @@
+.test: &test
+  label: "Test"
+  command: "ci/run"
+  env:
+    SHARED_MASTER_CACHE: true
+    DOCKER_IMAGE: gcr.io/opensourcecoin/radicle-registry-eth/ci-base:8536ced465affe7888a79613f34b7b4e5d181de6
+    DOCKER_FILE: ci/base-image/Dockerfile
+  agents:
+    platform: "linux"
+    production: "true"
+
+steps:
+  - branches: master
+    concurrency: 1
+    concurrency_group: master
+    <<: *test
+  - branches: "!master"
+    <<: *test
+
+notify:
+  - email: "registry-devs@monadic.xyz"
+    if: |
+      build.state == "failed" && build.branch == "master"

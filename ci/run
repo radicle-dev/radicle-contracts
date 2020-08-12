@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+export YARN_CACHE_FOLDER=/cache/yarn
+
+# The home folder is not writable on CI
+export HOME=/tmp/home
+mkdir -p $HOME
+
+echo "--- yarn install"
+yarn install --frozen-lockfile
+
+echo "--- lint"
+yarn run lint
+
+echo "--- build"
+yarn run build
+
+echo "--- test"
+yarn run test
