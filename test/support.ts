@@ -27,7 +27,7 @@ export async function setupTestEnvironment(): Promise<TestEnvironment> {
   const address = await signer.getAddress();
 
   const dai = await new TestTokenFactory(signer).deploy("Dai", 1e12);
-  const rad = await new RadFactory(signer).deploy(1e12);
+  const rad = await new RadFactory(signer).deploy(address, 1e8);
 
   const registry = await new RadicleRegistryFactory(signer).deploy(
     rad.address,
