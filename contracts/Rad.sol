@@ -8,10 +8,10 @@ contract Rad is ERC20 {
      * @notice Construct a new Rad token.
      * @param account The initial account to grant all the tokens
      */
-    constructor(
-      address account,
-      uint _totalSupply
-    ) public ERC20("Rad", "RAD") {
-        _mint(account, _totalSupply.mul(10 ** uint(decimals())));
+    constructor(address account, uint256 _totalSupply)
+        public
+        ERC20("Rad", "RAD")
+    {
+        _mint(account, _totalSupply.mul(10**uint256(decimals())));
     }
 }
