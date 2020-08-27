@@ -25,6 +25,8 @@
     "test": "buidler test",
     "lint": "yarn run lint:prettier && yarn run lint:solhint",
     "lint:solhint": "solhint --max-warnings=0 $(git ls-files | grep -E '\\.sol$')",
-    "lint:prettier": "prettier --check $(git ls-files | grep -E '\\.(sol|ts|js)$')"
+    "lint:prettier": "prettier $(git ls-files | grep -E '\\.(sol|ts|js)$')",
+    "lint:prettier:check": "yarn lint:prettier --check",
+    "lint:prettier:write": "yarn lint:prettier --write"
   }
 }
