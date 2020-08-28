@@ -60,13 +60,14 @@ contract VRad is ERC20 {
         grantor = _grantor;
     }
 
-    /// Expand the supply of Rad and vRad held by this contract equally.
-    function expandTokenSupply(uint256 amount) public {
+    /// Expand the supply of Rad and vRad held by this contract equally,
+    /// by transfering Rad from the sender to the contract.
+    function expandTokenSupply(address sender, uint256 amount) public {
         // TODO: Approve sender?
 
         // Transfer the Rad.
         require(
-            rad.transferFrom(msg.sender, address(this), amount),
+            rad.transferFrom(sender, address(this), amount),
             "The transfer in should succeed"
         );
         // Mint an equal amount of vRad.
@@ -79,7 +80,7 @@ contract VRad is ERC20 {
     {
         // Transfer out an equal amount of Rad from the contract to the receiver.
         require(
-            rad.transferFrom(address(this), receiver, amount),
+            rad.transfer(receiver, amount),
             "The transfer out should succeed"
         );
         // Burn an amount of vRad from the sender.
@@ -122,14 +123,21 @@ contract VRad is ERC20 {
         _allocate(grantee, amount);
     }
 
+    /// Get the amount of vesting tokens for an address.
+    function getVestingAmount(address grantee) public view returns (uint256) {
+        return balanceOf(grantee);
+    }
+
     /// Get the amount of currently vested tokens for an address.
     function getVestedAmount(address grantee) public view returns (uint256) {
         uint256 vestingAmount = balanceOf(grantee);
 
-        require(vestingAmount > 0, "Grantee must already have an allocation");
+        if (vestingAmount == 0) {
+            return 0;
+        }
 
         Allocation memory alloc = allocations[grantee];
-        uint256 elapsed = now - alloc.vestingStart;
+        uint256 elapsed = getTime() - alloc.vestingStart;
 
         if (elapsed < alloc.vestingCliffDuration) {
             return 0;
@@ -139,14 +147,18 @@ contract VRad is ERC20 {
             return vestingAmount;
         }
 
-        uint256 vestedAmount = (elapsed / alloc.vestingDuration) *
-            vestingAmount;
+        uint256 vestedAmount = elapsed * vestingAmount / alloc.vestingDuration;
 
         if (vestedAmount > vestingAmount) {
             vestedAmount = vestingAmount;
         }
 
         return vestedAmount;
+    }
+
+    /// Get the current time.
+    function getTime() public view returns (uint256) {
+        return block.timestamp;
     }
 
     /// Redeem vRad tokens for Rad tokens.
