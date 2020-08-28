@@ -169,9 +169,19 @@ contract VRad is ERC20 {
         );
 
         // Make the actual transfer.
-        require(
-            transferFrom(address(this), grantee, amount),
-            "Transfer from contract must be valid"
-        );
+        _transfer(address(this), grantee, amount);
+    }
+
+    /// Transfer of vRad is only allowed by the grantor.
+    function transfer(address recipient, uint256 amount)
+        public
+        override
+        returns (bool)
+    {
+        require(msg.sender == grantor, "Only the grantor can transfer vRad");
+
+        _transfer(msg.sender, recipient, amount);
+
+        return true;
     }
 }
