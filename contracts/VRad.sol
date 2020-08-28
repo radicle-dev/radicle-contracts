@@ -1,4 +1,4 @@
-//SPDX-License-Identifier: ISC
+// SPDX-License-Identifier: ISC
 pragma solidity ^0.6.2;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
@@ -15,7 +15,31 @@ struct Allocation {
     uint256 vestingDuration;
 }
 
-/// The vRad (vesting) token.
+/// The vRad token.
+///
+/// This contract implements a simple vesting token (vRad) that can be redeemed
+/// for an equal amount of Rad when the vesting period is over.
+///
+/// The general idea is the following:
+///
+/// 1. The contract is initialized with a "grantor" who has the right
+///    to grant vRad to an address. The contract starts out with a zero
+///    balance.
+/// 2. The contract supply is expanded via `expandTokenSupply`. With this
+///    method, the sender can transfer Rad to mint an equal amount of vRad
+///    into the contract's supply. The contract now holds an equal amount of
+///    Rad and vRad.
+/// 3. When the grantor wants to grant tokens to an address, they call
+///    `allocateTokens`. This simply transfers vRad from the contract
+///    to the "grantee", and records the vesting rules for that allocation.
+/// 4. The grantee can then call `getVestedAmount` at all times to check their
+///    amount of vested tokens.
+/// 5. When this amount is non-zero, the grantee can redeem vRad for Rad, by
+///    calling `redeemTokens` with an amount. As long as this amount isn't
+///    greater than the vested amount, the contract supply is shrunk via
+///    `shrinkTokenSupply`: the specified amount of vRad is burned, and an
+///    equal amount of Rad is transfered from the contract to the redeemer.
+///
 contract VRad is ERC20 {
     /// The Rad token.
     Rad private immutable rad;
