@@ -158,6 +158,10 @@ contract VRad is ERC20 {
         );
 
         shrinkTokenSupply(receiver, amount);
+
+        if (balanceOf(msg.sender) == 0) {
+            delete allocations[msg.sender];
+        }
     }
 
     /// Transfer the given amount of tokens from the contract to the grantee.
