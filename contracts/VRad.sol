@@ -6,12 +6,13 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "./Rad.sol";
 
 /// A token allocation of vRad.
+///
+/// @param vestingStart Vesting start time in seconds since Epoch.
+/// @param vestingCliffDuration Vesting cliff duration.
+/// @param vestingDuration Vesting total (including cliff) duration in seconds.
 struct Allocation {
-    /// Vesting start time in seconds since Epoch.
     uint256 vestingStart;
-    /// Vesting cliff duration.
     uint256 vestingCliffDuration;
-    /// Vesting total (including cliff) duration in seconds.
     uint256 vestingDuration;
 }
 
@@ -41,7 +42,7 @@ struct Allocation {
 ///    equal amount of Rad is transfered from the contract to the redeemer.
 ///
 contract VRad is ERC20 {
-    /// The Rad token.
+    /// @dev The Rad token.
     Rad private immutable rad;
 
     /// Token allocations.
