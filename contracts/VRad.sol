@@ -63,8 +63,6 @@ contract VRad is ERC20 {
     /// Expand the supply of Rad and vRad held by this contract equally,
     /// by transfering Rad from the sender to the contract.
     function expandTokenSupply(address sender, uint256 amount) public {
-        // TODO: Approve sender?
-
         // Transfer the Rad.
         require(
             rad.transferFrom(sender, address(this), amount),
