@@ -62,7 +62,7 @@ contract VRad is ERC20 {
 
     /// Expand the supply of Rad and vRad held by this contract equally,
     /// by transfering Rad from the sender to the contract.
-    function expandTokenSupply(address sender, uint256 amount) public {
+    function depositRadFrom(address sender, uint256 amount) public {
         // Transfer the Rad.
         require(
             rad.transferFrom(sender, address(this), amount),
@@ -72,8 +72,8 @@ contract VRad is ERC20 {
         _mint(address(this), amount);
     }
 
-    /// Shrink the supply of Rad and vRad held by this contract equally.
-    function shrinkTokenSupply(address payable receiver, uint256 amount)
+    /// Transfer Rad out of the contract, burning an equal amount of VRad.
+    function withdrawRadTo(address payable receiver, uint256 amount)
         internal
     {
         // Transfer out an equal amount of Rad from the contract to the receiver.
@@ -85,8 +85,8 @@ contract VRad is ERC20 {
         _burn(msg.sender, amount);
     }
 
-    /// Allocate vesting tokens to an address.
-    function allocateTokens(
+    /// Grant vesting tokens to an address.
+    function grantTokens(
         address grantee,
         uint256 amount,
         uint32 vestingStart,
@@ -112,7 +112,7 @@ contract VRad is ERC20 {
     }
 
     /// Increase the vesting token allocation of an address.
-    function increaseAllocation(address grantee, uint256 amount) public {
+    function grantAdditionalTokens(address grantee, uint256 amount) public {
         require(
             balanceOf(grantee) > 0,
             "Grantee must already have an allocation"
@@ -122,12 +122,12 @@ contract VRad is ERC20 {
     }
 
     /// Get the amount of vesting tokens for an address.
-    function getVestingAmount(address grantee) public view returns (uint256) {
+    function vestingBalanceOf(address grantee) public view returns (uint256) {
         return balanceOf(grantee);
     }
 
     /// Get the amount of currently vested tokens for an address.
-    function getVestedAmount(address grantee) public view returns (uint256) {
+    function vestedBalanceOf(address grantee) public view returns (uint256) {
         uint256 vestingAmount = balanceOf(grantee);
 
         if (vestingAmount == 0) {
@@ -160,14 +160,14 @@ contract VRad is ERC20 {
     }
 
     /// Redeem vRad tokens for Rad tokens.
-    function redeemTokens(address payable receiver, uint256 amount) public {
+    function redeemVestedTokens(address payable receiver, uint256 amount) public {
         require(amount > 0, "Redeem amount must be positive");
         require(
-            getVestedAmount(msg.sender) >= amount,
+            vestedBalanceOf(msg.sender) >= amount,
             "Redeem amount should be vested"
         );
 
-        shrinkTokenSupply(receiver, amount);
+        withdrawRadTo(receiver, amount);
 
         if (balanceOf(msg.sender) == 0) {
             delete allocations[msg.sender];

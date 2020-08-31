@@ -42,11 +42,11 @@ describe("VRad", function () {
 
     // Expand token supply.
     await submit(
-      vrad.connect(treasury).expandTokenSupply(treasuryAddress, 70)
+      vrad.connect(treasury).depositRadFrom(treasuryAddress, 70)
     );
 
     // Since the grantee hasn't been granted anything, he should have zero allocation.
-    assert.equal((await vrad.getVestedAmount(granteeAddress)).toNumber(), 0);
+    assert.equal((await vrad.vestedBalanceOf(granteeAddress)).toNumber(), 0);
 
     // Get the current (block) time.
     const now = await vrad.getTime();
@@ -55,8 +55,8 @@ describe("VRad", function () {
     // Total vesting duration (1 week)
     const vestingTotal = vestingCliff * 7;
 
-    // Allocate some tokens to the grantee.
-    await submit(vrad.connect(grantor).allocateTokens(
+    // Grant some tokens to the grantee.
+    await submit(vrad.connect(grantor).grantTokens(
       granteeAddress,
       70, // 10 Rad (smallest denomination)
       now, // Start time of vesting
@@ -65,24 +65,24 @@ describe("VRad", function () {
     ));
 
     // The grantee should now have tokens vesting.
-    assert.equal((await vrad.getVestingAmount(granteeAddress)).toNumber(), 70);
+    assert.equal((await vrad.vestingBalanceOf(granteeAddress)).toNumber(), 70);
     // ... but nothing vested yet.
-    assert.equal((await vrad.getVestedAmount(granteeAddress)).toNumber(), 0);
+    assert.equal((await vrad.vestedBalanceOf(granteeAddress)).toNumber(), 0);
 
     // Advance time by half the cliff period.
     await elapse(vestingCliff / 2);
 
     // Since we're still within the cliff, nothing is vested.
-    assert.equal((await vrad.getVestedAmount(granteeAddress)).toNumber(), 0);
+    assert.equal((await vrad.vestedBalanceOf(granteeAddress)).toNumber(), 0);
 
     // Advance time until the cliff is passed.
     await elapse(vestingCliff / 2);
 
     // Cliff is passed, we vested 1/7.
-    assert.equal((await vrad.getVestedAmount(granteeAddress)).toNumber(), 10);
+    assert.equal((await vrad.vestedBalanceOf(granteeAddress)).toNumber(), 10);
 
     // Redeem our vested tokens.
-    await submit(vrad.connect(grantee).redeemTokens(granteeAddress, 10));
+    await submit(vrad.connect(grantee).redeemVestedTokens(granteeAddress, 10));
 
     // Grantee Rad balance is 1/7 of vested.
     assert((await rad.balanceOf(granteeAddress)).eq(10));
