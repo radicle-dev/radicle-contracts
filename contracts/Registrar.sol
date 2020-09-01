@@ -19,20 +19,24 @@ contract Registrar {
     }
 
     /// Register a subdomain.
-    function register(bytes32 label, address owner) payable public {
+    function register(string memory name, address owner) payable public {
         uint256 fee = registrationFee();
 
         require(msg.value >= fee);
+        require(valid(name));
 
-        bytes32 node = namehash(label);
-        address currentOwner = ens.owner(node);
-
-        require(currentOwner == address(0) || currentOwner == msg.sender);
+        _register(keccak256(bytes(name)), owner);
 
         // Return change.
-        if (msg.value > fee {
+        if (msg.value > fee) {
             msg.sender.transfer(msg.value - fee);
         }
+    }
+
+    function _register(bytes32 label, address owner) private {
+        bytes32 node = namehash(rootNode, label);
+
+        require(!ens.recordExists(node));
 
         ens.setSubnodeOwner(rootNode, label, owner);
     }
@@ -46,14 +50,14 @@ contract Registrar {
     /// Check whether a name is available for registration.
     function available(string memory name) public view returns(bool) {
         bytes32 label = keccak256(bytes(name));
-        bytes32 node = namehash(label);
+        bytes32 node = namehash(rootNode, label);
 
         return valid(name) && !ens.recordExists(node);
     }
 
     /// Get the "namehash" of a label.
-    function namehash(bytes32 label) view public returns(bytes32) {
-        return keccak256(abi.encodePacked(rootNode, label));
+    function namehash(bytes32 parent, bytes32 label) pure public returns(bytes32) {
+        return keccak256(abi.encodePacked(parent, label));
     }
 
     /// Registration fee in `wei`.
