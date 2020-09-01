@@ -28,8 +28,8 @@ contract Registrar {
     function register(string memory name, address owner) public payable {
         uint256 fee = registrationFee();
 
-        require(msg.value >= fee);
-        require(valid(name));
+        require(msg.value >= fee, "Transaction includes registration fee");
+        require(valid(name), "Name must be valid");
 
         _register(keccak256(bytes(name)), owner);
 
@@ -42,7 +42,7 @@ contract Registrar {
     function _register(bytes32 label, address owner) private {
         bytes32 node = namehash(rootNode, label);
 
-        require(!ens.recordExists(node));
+        require(!ens.recordExists(node), "Record must not already exist");
 
         ens.setSubnodeOwner(rootNode, label, owner);
     }
@@ -74,7 +74,7 @@ contract Registrar {
     function registrationFee() public view returns (uint256) {
         int256 ethUsd = oracle.latestPrice();
 
-        require(ethUsd > 0);
+        require(ethUsd > 0, "Price of ether must be positive");
 
         return REGISTRATION_FEE / uint256(ethUsd);
     }

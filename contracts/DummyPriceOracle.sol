@@ -4,7 +4,7 @@ pragma solidity ^0.6.12;
 import "./PriceOracle.sol";
 
 contract DummyPriceOracle is PriceOracle {
-    int256 price;
+    int256 private price;
 
     constructor(int256 _price) public {
         set(_price);
