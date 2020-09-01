@@ -37,11 +37,13 @@ contract Registrar {
         ens.setSubnodeOwner(rootNode, label, owner);
     }
 
+    /// Check whether a name is valid.
     function valid(string memory name) public pure returns(bool) {
         // FIXME(cloudhead): This is only correct for ASCII.
         return bytes(name).length >= 3;
     }
 
+    /// Check whether a name is available for registration.
     function available(string memory name) public view returns(bool) {
         bytes32 label = keccak256(bytes(name));
         bytes32 node = namehash(label);
@@ -49,6 +51,7 @@ contract Registrar {
         return valid(name) && !ens.recordExists(node);
     }
 
+    /// Get the "namehash" of a label.
     function namehash(bytes32 label) view public returns(bytes32) {
         return keccak256(abi.encodePacked(rootNode, label));
     }
