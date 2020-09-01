@@ -3,9 +3,14 @@ pragma solidity ^0.6.12;
 
 import "@ensdomains/ens/contracts/ENS.sol";
 
+import "./PriceOracle.sol";
+
 contract Registrar {
     /// The ENS registry.
     ENS public ens;
+
+    /// The price oracle.
+    PriceOracle public oracle;
 
     /// The namehash of the domain this registrar owns(eg. radicle.eth).
     bytes32 public rootNode;
@@ -13,8 +18,9 @@ contract Registrar {
     /// Registration fee in *USD*.
     uint256 public constant REGISTRATION_FEE = 10;
 
-    constructor(address ensAddress, bytes32 _rootNode) public {
+    constructor(address ensAddress, bytes32 _rootNode, address oracleAddress) public {
         ens = ENS(ensAddress);
+        oracle = PriceOracle(oracleAddress);
         rootNode = _rootNode;
     }
 
@@ -65,9 +71,11 @@ contract Registrar {
     }
 
     /// Registration fee in `wei`.
-    function registrationFee() public pure returns (uint256) {
-        // TODO(cloudhead): Use a price oracle to convert the USD
-        // fee into wei.
-        return 10 wei;
+    function registrationFee() public view returns (uint256) {
+        int256 ethUsd = oracle.latestPrice();
+
+        require(ethUsd > 0);
+
+        return REGISTRATION_FEE / uint256(ethUsd);
     }
 }
