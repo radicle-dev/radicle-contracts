@@ -20,10 +20,19 @@ contract Registrar {
 
     /// Register a subdomain.
     function register(bytes32 label, address owner) payable public {
+        uint256 fee = registrationFee();
+
+        require(msg.value >= fee);
+
         bytes32 node = namehash(label);
         address currentOwner = ens.owner(node);
 
         require(currentOwner == address(0) || currentOwner == msg.sender);
+
+        // Return change.
+        if (msg.value > fee {
+            msg.sender.transfer(msg.value - fee);
+        }
 
         ens.setSubnodeOwner(rootNode, label, owner);
     }
