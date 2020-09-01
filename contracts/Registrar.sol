@@ -10,18 +10,44 @@ contract Registrar {
     /// The namehash of the domain this registrar owns(eg. radicle.eth).
     bytes32 public rootNode;
 
+    /// Registration fee in *USD*.
+    uint256 constant public REGISTRATION_FEE = 10;
+
     constructor(address ensAddress, bytes32 _rootNode) public {
         ens = ENS(ensAddress);
         rootNode = _rootNode;
     }
 
     /// Register a subdomain.
-    function register(bytes32 subNode, address owner) public {
-        bytes32 node = keccak256(abi.encodePacked(rootNode, subNode));
+    function register(bytes32 label, address owner) payable public {
+        bytes32 node = namehash(label);
         address currentOwner = ens.owner(node);
 
         require(currentOwner == address(0) || currentOwner == msg.sender);
 
-        ens.setSubnodeOwner(rootNode, subNode, owner);
+        ens.setSubnodeOwner(rootNode, label, owner);
+    }
+
+    function valid(string memory name) public pure returns(bool) {
+        // FIXME(cloudhead): This is only correct for ASCII.
+        return bytes(name).length >= 3;
+    }
+
+    function available(string memory name) public view returns(bool) {
+        bytes32 label = keccak256(bytes(name));
+        bytes32 node = namehash(label);
+
+        return valid(name) && !ens.recordExists(node);
+    }
+
+    function namehash(bytes32 label) view public returns(bytes32) {
+        return keccak256(abi.encodePacked(rootNode, label));
+    }
+
+    /// Registration fee in `wei`.
+    function registrationFee() public pure returns(uint256) {
+        // TODO(cloudhead): Use a price oracle to convert the USD
+        // fee into wei.
+        return 10 wei;
     }
 }
