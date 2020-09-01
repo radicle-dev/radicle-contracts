@@ -14,7 +14,7 @@ contract DummyPriceOracle is PriceOracle {
         price = _price;
     }
 
-    function latestPrice() public override view returns(int256) {
+    function latestPrice() public override view returns (int256) {
         return price;
     }
 }

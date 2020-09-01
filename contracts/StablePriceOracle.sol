@@ -15,8 +15,8 @@ contract StablePriceOracle is PriceOracle {
         priceFeed = AggregatorV3Interface(_priceFeed);
     }
 
-    function latestPrice() public view override returns(int256) {
-        (, int price,,,) = priceFeed.latestRoundData();
+    function latestPrice() public override view returns (int256) {
+        (, int256 price, , , ) = priceFeed.latestRoundData();
 
         return price;
     }
