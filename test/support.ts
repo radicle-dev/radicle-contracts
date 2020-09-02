@@ -57,14 +57,3 @@ export async function wait(
 ): Promise<Ethers.ContractReceipt> {
   return (await response).wait();
 }
-
-// buidler does not provide proper type definitions for the `ethers`
-// plugin.
-declare module "@nomiclabs/buidler/types" {
-  interface BuidlerRuntimeEnvironment {
-    ethers: {
-      provider: Ethers.providers.JsonRpcProvider;
-      getSigners(): Ethers.Signer[];
-    };
-  }
-}

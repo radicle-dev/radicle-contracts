@@ -18,7 +18,11 @@ contract Registrar {
     /// Registration fee in *USD*.
     uint256 public constant REGISTRATION_FEE = 10;
 
-    constructor(address ensAddress, bytes32 _rootNode, address oracleAddress) public {
+    constructor(
+        address ensAddress,
+        bytes32 _rootNode,
+        address oracleAddress
+    ) public {
         ens = ENS(ensAddress);
         oracle = PriceOracle(oracleAddress);
         rootNode = _rootNode;
