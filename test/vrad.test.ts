@@ -2,13 +2,12 @@ import * as Ethers from "ethers";
 import buidler from "@nomiclabs/buidler";
 import {assert} from "chai";
 
-import {
-  VRadFactory,
-  RadFactory,
-} from "../ethers-contracts";
+import {VRadFactory, RadFactory} from "../ethers-contracts";
 
 /// Submit a transaction and wait for it to be mined. Then assert that it succeeded.
-async function submit(tx: Promise<Ethers.ContractTransaction>): Promise<Ethers.ContractReceipt> {
+async function submit(
+  tx: Promise<Ethers.ContractTransaction>
+): Promise<Ethers.ContractReceipt> {
   const receipt = await (await tx).wait();
   assert.equal(receipt.status, 1, "transaction must be successful");
 
@@ -17,19 +16,27 @@ async function submit(tx: Promise<Ethers.ContractTransaction>): Promise<Ethers.C
 
 /// Let a certain amount of time pass.
 async function elapse(time: number) {
-  await buidler.ethers.provider.send('evm_increaseTime', [time]);
-  await buidler.ethers.provider.send('evm_mine', []);
+  await buidler.ethers.provider.send("evm_increaseTime", [time]);
+  await buidler.ethers.provider.send("evm_mine", []);
 }
 
 describe("VRad", function () {
   it("is a vesting token", async function () {
-    const [owner, grantor, grantee, treasury] = await buidler.ethers.getSigners();
+    const [
+      owner,
+      grantor,
+      grantee,
+      treasury,
+    ] = await buidler.ethers.getSigners();
     const grantorAddress = await grantor.getAddress();
     const treasuryAddress = await treasury.getAddress();
     const granteeAddress = await grantee.getAddress();
 
     const rad = await new RadFactory(owner).deploy(treasuryAddress, 100);
-    const vrad = await new VRadFactory(owner).deploy(rad.address, grantorAddress);
+    const vrad = await new VRadFactory(owner).deploy(
+      rad.address,
+      grantorAddress
+    );
 
     // Treasury balance is greater than zero.
     assert((await rad.balanceOf(treasuryAddress)).gt(0));
@@ -38,12 +45,13 @@ describe("VRad", function () {
     await submit(rad.connect(treasury).approve(vrad.address, 100));
 
     // Check allowance.
-    assert.equal((await rad.allowance(treasuryAddress, vrad.address)).toNumber(), 100);
+    assert.equal(
+      (await rad.allowance(treasuryAddress, vrad.address)).toNumber(),
+      100
+    );
 
     // Expand token supply.
-    await submit(
-      vrad.connect(treasury).depositRadFrom(treasuryAddress, 70)
-    );
+    await submit(vrad.connect(treasury).depositRadFrom(treasuryAddress, 70));
 
     // Since the grantee hasn't been granted anything, he should have zero allocation.
     assert.equal((await vrad.vestedBalanceOf(granteeAddress)).toNumber(), 0);
@@ -56,13 +64,15 @@ describe("VRad", function () {
     const vestingTotal = vestingCliff * 7;
 
     // Grant some tokens to the grantee.
-    await submit(vrad.connect(grantor).grantTokens(
-      granteeAddress,
-      70, // 10 Rad (smallest denomination)
-      now, // Start time of vesting
-      vestingCliff,
-      vestingTotal,
-    ));
+    await submit(
+      vrad.connect(grantor).grantTokens(
+        granteeAddress,
+        70, // 10 Rad (smallest denomination)
+        now, // Start time of vesting
+        vestingCliff,
+        vestingTotal
+      )
+    );
 
     // The grantee should now have tokens vesting.
     assert.equal((await vrad.vestingBalanceOf(granteeAddress)).toNumber(), 70);

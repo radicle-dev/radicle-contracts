@@ -13,7 +13,7 @@
     "ethers": "^5.0.7",
     "mocha": "^8.1.0",
     "prettier": "^2.0.5",
-    "prettier-plugin-solidity": "^1.0.0-alpha.55",
+    "prettier-plugin-solidity": "^1.0.0-alpha.56",
     "solhint": "^3.1.0",
     "ts-generator": "^0.0.8",
     "ts-node": "^8.10.2",
@@ -23,7 +23,7 @@
   "scripts": {
     "build": "buidler compile && tsc",
     "test": "buidler test",
-    "lint": "yarn run lint:prettier && yarn run lint:solhint",
+    "lint": "yarn run lint:prettier:check && yarn run lint:solhint",
     "lint:solhint": "solhint --max-warnings=0 $(git ls-files | grep -E '\\.sol$')",
     "lint:prettier": "prettier $(git ls-files | grep -E '\\.(sol|ts|js)$')",
     "lint:prettier:check": "yarn lint:prettier --check",
