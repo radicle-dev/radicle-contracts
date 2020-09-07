@@ -77,7 +77,11 @@ contract DummyEnsRegistry is ENS {
         records[node].resolver = resolver;
     }
 
-    function setTTL(bytes32 node, uint64 _ttl) public override authorised(node) {
+    function setTTL(bytes32 node, uint64 _ttl)
+        public
+        override
+        authorised(node)
+    {
         emit NewTTL(node, _ttl);
         records[node].ttl = _ttl;
     }
