@@ -37,14 +37,14 @@ describe("Registrar", function () {
       oracle.address
     );
 
-    oracle.deployed();
-    ens.deployed();
-    registrar.deployed();
+    await oracle.deployed();
+    await ens.deployed();
+    await registrar.deployed();
 
     const ethNode = await registrar.namehash(zeroNode, ethLabel);
     const cloudheadNode = await registrar.namehash(radicleNode, cloudheadLabel);
     const registrantAddr = await registrant.getAddress();
-    const fee = 10;
+    const fee = (await registrar.registrationFee()).toNumber();
 
     // Create the `.eth` node, with `owner` as its owner.
     await submit(
@@ -60,6 +60,10 @@ describe("Registrar", function () {
     );
     assert.equal(await ens.owner(radicleNode), registrar.address);
 
+    // Check name availability.
+    assert(await registrar.available("cloudhead"));
+    assert(await registrar.available("treehead"));
+
     // Register `cloudhead.radicle.eth`.
     await submit(
       registrar
@@ -67,5 +71,6 @@ describe("Registrar", function () {
         .register("cloudhead", registrantAddr, {value: fee})
     );
     assert.equal(await ens.owner(cloudheadNode), registrantAddr);
+    assert(!await registrar.available("cloudhead"));
   });
 });
