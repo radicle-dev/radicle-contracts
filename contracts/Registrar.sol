@@ -9,19 +9,19 @@ import "./Rad.sol";
 
 contract Registrar {
     /// The ENS registry.
-    ENS immutable public ens;
+    ENS public immutable ens;
 
     /// The price oracle.
-    PriceOracle immutable public oracle;
+    PriceOracle public immutable oracle;
 
     /// The Rad/Eth exchange.
-    Exchange immutable public exchange;
+    Exchange public immutable exchange;
 
     /// The Rad ERC20 token.
-    Rad immutable public rad;
+    Rad public immutable rad;
 
     /// The namehash of the domain this registrar owns(eg. radicle.eth).
-    bytes32 immutable public rootNode;
+    bytes32 public immutable rootNode;
 
     /// Registration fee in *USD*.
     uint256 public constant REGISTRATION_FEE = 10;
