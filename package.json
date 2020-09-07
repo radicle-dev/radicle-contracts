@@ -3,6 +3,8 @@
   "license": "GPL-3.0-only",
   "dependencies": {},
   "devDependencies": {
+    "@chainlink/contracts": "^0.0.9",
+    "@ensdomains/ens": "^0.4.4",
     "@nomiclabs/buidler": "^1.4.3",
     "@nomiclabs/buidler-ethers": "^2.0.0",
     "@nomiclabs/buidler-waffle": "^2.0.0",

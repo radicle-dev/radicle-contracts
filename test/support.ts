@@ -1,5 +1,6 @@
 import * as Ethers from "ethers";
 import buidler from "@nomiclabs/buidler";
+import {assert} from "chai";
 
 import {
   TestTokenFactory,
@@ -58,13 +59,12 @@ export async function wait(
   return (await response).wait();
 }
 
-// buidler does not provide proper type definitions for the `ethers`
-// plugin.
-declare module "@nomiclabs/buidler/types" {
-  interface BuidlerRuntimeEnvironment {
-    ethers: {
-      provider: Ethers.providers.JsonRpcProvider;
-      getSigners(): Ethers.Signer[];
-    };
-  }
+/// Submit a transaction and wait for it to be mined. Then assert that it succeeded.
+export async function submit(
+  tx: Promise<Ethers.ContractTransaction>
+): Promise<Ethers.ContractReceipt> {
+  const receipt = await (await tx).wait();
+  assert.equal(receipt.status, 1, "transaction must be successful");
+
+  return receipt;
 }

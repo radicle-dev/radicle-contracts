@@ -1,18 +1,8 @@
-import * as Ethers from "ethers";
 import buidler from "@nomiclabs/buidler";
 import {assert} from "chai";
+import {submit} from "./support";
 
 import {VRadFactory, RadFactory} from "../ethers-contracts";
-
-/// Submit a transaction and wait for it to be mined. Then assert that it succeeded.
-async function submit(
-  tx: Promise<Ethers.ContractTransaction>
-): Promise<Ethers.ContractReceipt> {
-  const receipt = await (await tx).wait();
-  assert.equal(receipt.status, 1, "transaction must be successful");
-
-  return receipt;
-}
 
 /// Let a certain amount of time pass.
 async function elapse(time: number) {

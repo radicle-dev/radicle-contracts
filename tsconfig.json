@@ -1,8 +1,14 @@
 {
   "include": ["**/*.ts"],
   "exclude": ["node_modules"],
+  "files": [
+    "./buidler.config.ts",
+    "node_modules/@nomiclabs/buidler-ethers/src/type-extensions.d.ts"
+  ],
   "compilerOptions": {
     /* Visit https://aka.ms/tsconfig.json to read more about this file */
+
+    "resolveJsonModule": true,
 
     /* Basic Options */
     // "incremental": true,                   /* Enable incremental compilation */
