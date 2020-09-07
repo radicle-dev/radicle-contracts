@@ -71,6 +71,6 @@ describe("Registrar", function () {
         .register("cloudhead", registrantAddr, {value: fee})
     );
     assert.equal(await ens.owner(cloudheadNode), registrantAddr);
-    assert(!await registrar.available("cloudhead"));
+    assert(!(await registrar.available("cloudhead")));
   });
 });
