@@ -4,6 +4,8 @@ pragma solidity ^0.6.12;
 import "@ensdomains/ens/contracts/ENS.sol";
 
 import "./PriceOracle.sol";
+import "./Exchange.sol";
+import "./Rad.sol";
 
 contract Registrar {
     /// The ENS registry.
@@ -11,6 +13,12 @@ contract Registrar {
 
     /// The price oracle.
     PriceOracle public oracle;
+
+    /// The Rad/Eth exchange.
+    Exchange private exchange;
+
+    /// The Rad ERC20 token.
+    Rad private rad;
 
     /// The namehash of the domain this registrar owns(eg. radicle.eth).
     bytes32 public rootNode;
@@ -21,10 +29,14 @@ contract Registrar {
     constructor(
         address ensAddress,
         bytes32 _rootNode,
-        address oracleAddress
+        address oracleAddress,
+        address exchangeAddress,
+        address radAddress
     ) public {
         ens = ENS(ensAddress);
         oracle = PriceOracle(oracleAddress);
+        exchange = Exchange(exchangeAddress);
+        rad = Rad(radAddress);
         rootNode = _rootNode;
     }
 
@@ -36,6 +48,10 @@ contract Registrar {
         require(valid(name), "Name must be valid");
 
         _register(keccak256(bytes(name)), owner);
+
+        // Swap n' burn.
+        uint256 swapped = exchange.swapEthForRad{value: fee}(address(this));
+        rad.burn(swapped);
 
         // Return change.
         if (msg.value > fee) {
