@@ -1,3 +1,5 @@
+// Nb. The code in this file was adapted from the Uniswap libraries.
+
 pragma solidity ^0.6.12;
 
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
