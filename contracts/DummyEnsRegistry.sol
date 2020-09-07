@@ -1,7 +1,9 @@
+// SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.6.12;
 
 import "@ensdomains/ens/contracts/ENS.sol";
 
+/// This registrar is taken from the ENSBaseRegistrar.
 contract DummyEnsRegistry is ENS {
     struct Record {
         address owner;
@@ -27,42 +29,42 @@ contract DummyEnsRegistry is ENS {
 
     function setRecord(
         bytes32 node,
-        address owner,
+        address _owner,
         address resolver,
-        uint64 ttl
+        uint64 _ttl
     ) external override {
-        setOwner(node, owner);
-        _setResolverAndTTL(node, resolver, ttl);
+        setOwner(node, _owner);
+        _setResolverAndTTL(node, resolver, _ttl);
     }
 
     function setSubnodeRecord(
         bytes32 node,
         bytes32 label,
-        address owner,
+        address _owner,
         address resolver,
-        uint64 ttl
+        uint64 _ttl
     ) external override {
-        bytes32 subnode = setSubnodeOwner(node, label, owner);
-        _setResolverAndTTL(subnode, resolver, ttl);
+        bytes32 subnode = setSubnodeOwner(node, label, _owner);
+        _setResolverAndTTL(subnode, resolver, _ttl);
     }
 
-    function setOwner(bytes32 node, address owner)
+    function setOwner(bytes32 node, address _owner)
         public
         override
         authorised(node)
     {
-        _setOwner(node, owner);
-        emit Transfer(node, owner);
+        _setOwner(node, _owner);
+        emit Transfer(node, _owner);
     }
 
     function setSubnodeOwner(
         bytes32 node,
         bytes32 label,
-        address owner
+        address _owner
     ) public override authorised(node) returns (bytes32) {
         bytes32 subnode = keccak256(abi.encodePacked(node, label));
-        _setOwner(subnode, owner);
-        emit NewOwner(node, label, owner);
+        _setOwner(subnode, _owner);
+        emit NewOwner(node, label, _owner);
         return subnode;
     }
 
@@ -75,9 +77,9 @@ contract DummyEnsRegistry is ENS {
         records[node].resolver = resolver;
     }
 
-    function setTTL(bytes32 node, uint64 ttl) public override authorised(node) {
-        emit NewTTL(node, ttl);
-        records[node].ttl = ttl;
+    function setTTL(bytes32 node, uint64 _ttl) public override authorised(node) {
+        emit NewTTL(node, _ttl);
+        records[node].ttl = _ttl;
     }
 
     function setApprovalForAll(address operator, bool approved)
@@ -109,32 +111,32 @@ contract DummyEnsRegistry is ENS {
         return records[node].owner != address(0x0);
     }
 
-    function isApprovedForAll(address owner, address operator)
+    function isApprovedForAll(address _owner, address operator)
         external
         override
         view
         returns (bool)
     {
-        return operators[owner][operator];
+        return operators[_owner][operator];
     }
 
-    function _setOwner(bytes32 node, address owner) internal {
-        records[node].owner = owner;
+    function _setOwner(bytes32 node, address _owner) internal {
+        records[node].owner = _owner;
     }
 
     function _setResolverAndTTL(
         bytes32 node,
         address resolver,
-        uint64 ttl
+        uint64 _ttl
     ) internal {
         if (resolver != records[node].resolver) {
             records[node].resolver = resolver;
             emit NewResolver(node, resolver);
         }
 
-        if (ttl != records[node].ttl) {
-            records[node].ttl = ttl;
-            emit NewTTL(node, ttl);
+        if (_ttl != records[node].ttl) {
+            records[node].ttl = _ttl;
+            emit NewTTL(node, _ttl);
         }
     }
 }
