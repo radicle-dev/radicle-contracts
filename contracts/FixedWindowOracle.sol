@@ -45,10 +45,7 @@ contract FixedWindowOracle {
 
         (reserve0, reserve1, blockTimestampLast) = _pair.getReserves();
 
-        require(
-            reserve0 != 0 && reserve1 != 0,
-            "ExampleOracleSimple: NO_RESERVES"
-        ); // ensure that there's liquidity in the pair
+        require(reserve0 != 0 && reserve1 != 0, "Reserves must be non-zero"); // ensure that there's liquidity in the pair
     }
 
     function update() external {
@@ -61,10 +58,9 @@ contract FixedWindowOracle {
         uint32 timeElapsed = blockTimestamp - blockTimestampLast; // overflow is desired
 
         // ensure that at least one full period has passed since the last update
-        require(
-            timeElapsed >= PERIOD,
-            "ExampleOracleSimple: PERIOD_NOT_ELAPSED"
-        );
+        if (timeElapsed < PERIOD) {
+            return;
+        }
 
         // overflow is desired, casting never truncates
         // cumulative price is in (uq112x112 price * seconds) units so we simply wrap it after division by time elapsed
