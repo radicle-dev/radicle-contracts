@@ -1,23 +1,40 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.6.12;
 
-// Mainnet ETHUSD: 0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419
-// Ropsten ETHUSD: 0x30B5068156688f818cEa0874B580206dFe081a03
-import "@chainlink/contracts/src/v0.6/interfaces/AggregatorV3Interface.sol";
-
 import "./PriceOracle.sol";
+import "./FixedWindowOracle.sol";
 
 contract StablePriceOracle is PriceOracle {
-    /// Chainlink price oracle.
-    AggregatorV3Interface public priceFeed;
+    /// Uniswap USD/ETH price oracle.
+    FixedWindowOracle public usdEthOracle;
+    /// Uniswap ETH/RAD price oracle.
+    FixedWindowOracle public ethRadOracle;
 
-    constructor(address _priceFeed) public {
-        priceFeed = AggregatorV3Interface(_priceFeed);
+    constructor(address _usdEthOracle, address _ethRadOracle) public {
+        usdEthOracle = FixedWindowOracle(_usdEthOracle);
+        ethRadOracle = FixedWindowOracle(_ethRadOracle);
     }
 
-    function latestPrice() public override view returns (int256) {
-        (, int256 price, , , ) = priceFeed.latestRoundData();
+    function updatePrices() public override {
+        usdEthOracle.update();
+        ethRadOracle.update();
+    }
 
-        return price;
+    function consultUsdEth(uint256 usdAmount)
+        public
+        override
+        view
+        returns (uint256)
+    {
+        return usdEthOracle.consult(usdAmount);
+    }
+
+    function consultEthRad(uint256 ethAmount)
+        public
+        override
+        view
+        returns (uint256)
+    {
+        return ethRadOracle.consult(ethAmount);
     }
 }

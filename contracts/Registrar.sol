@@ -9,19 +9,19 @@ import "./Rad.sol";
 
 contract Registrar {
     /// The ENS registry.
-    ENS public ens;
+    ENS immutable public ens;
 
     /// The price oracle.
-    PriceOracle public oracle;
+    PriceOracle immutable public oracle;
 
     /// The Rad/Eth exchange.
-    Exchange private exchange;
+    Exchange immutable public exchange;
 
     /// The Rad ERC20 token.
-    Rad private rad;
+    Rad immutable public rad;
 
     /// The namehash of the domain this registrar owns(eg. radicle.eth).
-    bytes32 public rootNode;
+    bytes32 immutable public rootNode;
 
     /// Registration fee in *USD*.
     uint256 public constant REGISTRATION_FEE = 10;
@@ -42,6 +42,9 @@ contract Registrar {
 
     /// Register a subdomain.
     function register(string memory name, address owner) public payable {
+        // Make sure the oracle has up-to-date pricing information.
+        oracle.updatePrices();
+
         uint256 fee = registrationFee();
 
         require(msg.value >= fee, "Transaction includes registration fee");
@@ -51,6 +54,8 @@ contract Registrar {
 
         // Swap n' burn.
         uint256 swapped = exchange.swapEthForRad{value: fee}(address(this));
+        require(swapped > 0, "Must burn a positive amount of Rad");
+
         rad.burn(swapped);
 
         // Return change.
@@ -92,10 +97,7 @@ contract Registrar {
 
     /// Registration fee in `wei`.
     function registrationFee() public view returns (uint256) {
-        int256 ethUsd = oracle.latestPrice();
-
-        require(ethUsd > 0, "Price of ether must be positive");
-
-        return REGISTRATION_FEE / uint256(ethUsd);
+        // Convert USD fee into ETH.
+        return oracle.consultUsdEth(REGISTRATION_FEE);
     }
 }

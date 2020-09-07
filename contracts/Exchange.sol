@@ -28,8 +28,7 @@ contract Exchange {
         path[1] = address(rad);
 
         // The minimum amount of Rad we're willing to receive in exchange.
-        // TODO(cloudhead): Get this amount from a price feed.
-        uint256 minimumRad = 0;
+        uint256 minimumRad = oracle.consultEthRad(msg.value);
 
         uint256[] memory amounts = router.swapExactETHForTokens(
             minimumRad,

@@ -36,6 +36,8 @@ describe("Registrar", function () {
     const Router = await ethers.getContractFactory("DummyRouter");
     const router = await Router.connect(owner).deploy(rad.address);
 
+    await submit(rad.connect(owner).transfer(router.address, 1e3));
+
     const Exchange = await ethers.getContractFactory("Exchange");
     const exchange = await Exchange.connect(owner).deploy(
       rad.address,
@@ -61,6 +63,7 @@ describe("Registrar", function () {
     const cloudheadNode = await registrar.namehash(radicleNode, cloudheadLabel);
     const registrantAddr = await registrant.getAddress();
     const fee = (await registrar.registrationFee()).toNumber();
+    const initialSupply = await rad.totalSupply();
 
     // Create the `.eth` node, with `owner` as its owner.
     await submit(
@@ -88,5 +91,9 @@ describe("Registrar", function () {
     );
     assert.equal(await ens.owner(cloudheadNode), registrantAddr);
     assert(!(await registrar.available("cloudhead")));
+
+    // Check that the burn happened.
+    const newSupply = await rad.totalSupply();
+    assert.equal(newSupply.sub(initialSupply).toNumber(), -fee);
   });
 });
