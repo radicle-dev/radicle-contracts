@@ -18,11 +18,15 @@ contract DummyRouter is Router {
         address to,
         uint256
     ) external override payable returns (uint256[] memory) {
-        rad.transfer(to, amountOutMin);
+        require(msg.value > 0, "Swap amount should be positive");
+
+        uint256 tokenAmount = msg.value;
+
+        rad.transfer(to, tokenAmount);
 
         uint256[] memory amounts = new uint256[](2);
         amounts[0] = msg.value;
-        amounts[1] = amountOutMin;
+        amounts[1] = tokenAmount;
 
         return amounts;
     }

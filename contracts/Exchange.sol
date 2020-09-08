@@ -28,14 +28,13 @@ contract Exchange {
         path[1] = address(rad);
 
         // The minimum amount of Rad we're willing to receive in exchange.
-        uint256 minimumRad = oracle.consultEthRad(msg.value);
+        // We keep this at zero to ensure registrations don't fail due to
+        // market volatility.
+        uint256 minimumRad = 0;
 
-        uint256[] memory amounts = router.swapExactETHForTokens(
-            minimumRad,
-            path,
-            receiver,
-            block.timestamp
-        );
+        uint256[] memory amounts = router.swapExactETHForTokens{
+            value: msg.value
+        }(minimumRad, path, receiver, block.timestamp);
 
         uint256 radAmount = amounts[1];
         require(radAmount >= minimumRad, "Enough Rad was exchanged");

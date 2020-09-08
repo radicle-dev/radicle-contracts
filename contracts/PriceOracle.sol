@@ -5,6 +5,4 @@ interface PriceOracle {
     function updatePrices() external;
 
     function consultUsdEth(uint256 usdAmount) external view returns (uint256);
-
-    function consultEthRad(uint256 ethAmount) external view returns (uint256);
 }

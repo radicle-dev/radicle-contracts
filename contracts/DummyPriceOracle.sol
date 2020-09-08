@@ -25,13 +25,4 @@ contract DummyPriceOracle is PriceOracle {
     {
         return usdAmount * price;
     }
-
-    function consultEthRad(uint256 ethAmount)
-        public
-        override
-        view
-        returns (uint256)
-    {
-        return ethAmount * price;
-    }
 }
