@@ -2,6 +2,7 @@
 // solhint-disable func-name-mixedcase
 pragma solidity ^0.6.12;
 
+/// The router is a subset of the `UniswapV2Router` interface.
 interface Router {
     function swapExactETHForTokens(
         uint256 amountOutMin,
