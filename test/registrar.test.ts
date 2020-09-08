@@ -30,21 +30,40 @@ describe("Registrar", function () {
     const ENS = await ethers.getContractFactory("DummyEnsRegistry");
     const ens = await ENS.connect(owner).deploy();
 
+    const Rad = await ethers.getContractFactory("Rad");
+    const rad = await Rad.connect(owner).deploy(ownerAddr, 1e6);
+
+    const Router = await ethers.getContractFactory("DummyRouter");
+    const router = await Router.connect(owner).deploy(rad.address);
+
+    await submit(rad.connect(owner).transfer(router.address, 1e3));
+
+    const Exchange = await ethers.getContractFactory("Exchange");
+    const exchange = await Exchange.connect(owner).deploy(
+      rad.address,
+      router.address,
+      oracle.address
+    );
+
     const Registrar = await ethers.getContractFactory("Registrar");
     const registrar = await Registrar.connect(owner).deploy(
       ens.address,
       radicleNode,
-      oracle.address
+      oracle.address,
+      exchange.address,
+      rad.address
     );
 
     await oracle.deployed();
     await ens.deployed();
     await registrar.deployed();
+    await rad.deployed();
 
     const ethNode = await registrar.namehash(zeroNode, ethLabel);
     const cloudheadNode = await registrar.namehash(radicleNode, cloudheadLabel);
     const registrantAddr = await registrant.getAddress();
     const fee = (await registrar.registrationFee()).toNumber();
+    const initialSupply = await rad.totalSupply();
 
     // Create the `.eth` node, with `owner` as its owner.
     await submit(
@@ -72,5 +91,9 @@ describe("Registrar", function () {
     );
     assert.equal(await ens.owner(cloudheadNode), registrantAddr);
     assert(!(await registrar.available("cloudhead")));
+
+    // Check that the burn happened.
+    const newSupply = await rad.totalSupply();
+    assert.equal(newSupply.sub(initialSupply).toNumber(), -fee);
   });
 });
