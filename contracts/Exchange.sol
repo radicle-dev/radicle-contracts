@@ -8,16 +8,16 @@ import "./Router.sol";
 contract Exchange {
     Router private router;
     PriceOracle private oracle;
-    Rad private rad;
+    address private rad;
 
     constructor(
         address _rad,
-        address _exchange,
+        address _router,
         address _oracle
     ) public {
-        rad = Rad(_rad);
+        rad = _rad;
         oracle = PriceOracle(_oracle);
-        router = Router(_exchange);
+        router = Router(_router);
     }
 
     function swapEthForRad(address receiver) public payable returns (uint256) {
@@ -36,9 +36,7 @@ contract Exchange {
             value: msg.value
         }(minimumRad, path, receiver, block.timestamp);
 
-        uint256 radAmount = amounts[1];
-        require(radAmount >= minimumRad, "Enough Rad was exchanged");
-
-        return radAmount;
+        // Return RAD amount exchanged.
+        return amounts[1];
     }
 }
