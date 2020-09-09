@@ -8,6 +8,8 @@
   agents:
     platform: "linux"
     production: "true"
+  artifact_paths:
+    - "radicle-contracts-*.tgz"
 
 steps:
   - branches: master
