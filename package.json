@@ -1,5 +1,6 @@
 {
-  "name": "radicle-registry",
+  "name": "radicle-contracts",
+  "version": "0.0.0",
   "license": "GPL-3.0-only",
   "dependencies": {},
   "devDependencies": {
@@ -25,6 +26,7 @@
   },
   "scripts": {
     "build": "buidler compile && tsc",
+    "prepack": "buidler compile",
     "test": "buidler test",
     "lint": "yarn run lint:prettier:check && yarn run lint:solhint",
     "lint:solhint": "solhint --max-warnings=0 $(git ls-files | grep -E '\\.sol$')",
