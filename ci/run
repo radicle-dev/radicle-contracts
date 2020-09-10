@@ -14,8 +14,27 @@ yarn install --frozen-lockfile
 echo "--- lint"
 yarn run lint
 
-echo "--- build"
-yarn run build
+echo "--- build && pack"
+yarn pack
 
 echo "--- test"
 yarn run test
+
+if [[ -n "${BUILDKITE_TAG:-}" ]]
+then
+    declare -r artifact_scope="${BUILDKITE_TAG}"
+elif [[ "${BUILDKITE_BRANCH}" == "master" ]]
+then
+    declare -r artifact_scope="master/${BUILDKITE_COMMIT}"
+else
+    declare -r artifact_scope="$BUILDKITE_JOB_ID"
+fi
+declare -r artifact_prefix="https://builds.radicle.xyz/radicle-contracts/${artifact_scope}"
+
+{
+  echo "Artifacts"
+  for path in radicle-contracts-v*.tgz; do
+    url="${artifact_prefix}/${path}"
+    echo "* [\`${path}\`](${url})"
+  done
+} | buildkite-agent annotate --context node-binary --style success

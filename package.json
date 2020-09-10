@@ -2,7 +2,8 @@
   "name": "radicle-contracts",
   "version": "0.0.0",
   "license": "GPL-3.0-only",
-  "dependencies": {},
+  "main": "build/src/index.js",
+  "types": "build/src/index.d.ts",
   "devDependencies": {
     "@ensdomains/ens": "^0.4.4",
     "@nomiclabs/buidler": "^1.4.3",
@@ -29,7 +30,7 @@
   },
   "scripts": {
     "build": "buidler compile && tsc",
-    "prepack": "buidler compile",
+    "prepack": "yarn build",
     "test": "buidler test",
     "lint": "yarn run lint:prettier:check && yarn run lint:solhint && yarn run lint:eslint",
     "lint:solhint": "solhint --max-warnings=0 $(git ls-files | grep -E '\\.sol$')",
@@ -37,5 +38,10 @@
     "lint:prettier": "prettier $(git ls-files | grep -E '\\.(sol|ts|js)$')",
     "lint:prettier:check": "yarn lint:prettier --check",
     "lint:prettier:write": "yarn lint:prettier --write"
-  }
+  },
+  "files": [
+    "src/**",
+    "build/**",
+    "ethers-contracts/**"
+  ]
 }
