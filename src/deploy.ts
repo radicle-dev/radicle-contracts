@@ -43,16 +43,14 @@ export async function deployDev(
     exchange.address,
     rad.address
   );
-  await registrar.deployed();
 
+  await registrar.deployed();
   await oracle.deployed();
   await ens.deployed();
   await rad.deployed();
   await router.deployed();
   await exchange.deployed();
-
   await (await rad.connect(signer).transfer(router.address, 1e3)).wait();
-
   await submitOk(
     ens.setSubnodeOwner(
       ensUtils.nameHash(""),
@@ -60,7 +58,6 @@ export async function deployDev(
       signerAddr
     )
   );
-
   await submitOk(
     ens.setSubnodeOwner(
       ensUtils.nameHash("eth"),
