@@ -27,21 +27,15 @@ export async function deployDev(
   signer: ethers.Signer
 ): Promise<DeployedContracts> {
   const signerAddr = await signer.getAddress();
-
   const oracle = await new DummyPriceOracleFactory(signer).deploy(1);
-
   const ens = await new DummyEnsRegistryFactory(signer).deploy();
-
   const rad = await new RadFactory(signer).deploy(signerAddr, 1e6);
-
   const router = await new DummyRouterFactory(signer).deploy(rad.address);
-
   const exchange = await new ExchangeFactory(signer).deploy(
     rad.address,
     router.address,
     oracle.address
   );
-
   const registrar = await new RegistrarFactory(signer).deploy(
     ens.address,
     ensUtils.nameHash("radicle.eth"),
