@@ -11,16 +11,16 @@ describe("Registrar", function () {
     const [owner, registrant] = await ethers.getSigners();
     const ownerAddr = await owner.getAddress();
 
-    var zeroNode =
+    const zeroNode =
       "0x0000000000000000000000000000000000000000000000000000000000000000";
-    var radicleNode =
+    const radicleNode =
       "0x1e8e223921cb10fa256008149efd13dc5089bb252c6270e8be840a020e2e6416";
 
-    var ethLabel = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("eth"));
-    var radicleLabel = ethers.utils.keccak256(
+    const ethLabel = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("eth"));
+    const radicleLabel = ethers.utils.keccak256(
       ethers.utils.toUtf8Bytes("radicle")
     );
-    var cloudheadLabel = ethers.utils.keccak256(
+    const cloudheadLabel = ethers.utils.keccak256(
       ethers.utils.toUtf8Bytes("cloudhead")
     );
 

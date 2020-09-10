@@ -17,7 +17,7 @@ export default {
   },
 };
 
-task(TASK_COMPILE).setAction(async ({}, {config}, runSuper) => {
+task(TASK_COMPILE).setAction(async (_, {config}, runSuper) => {
   await runSuper();
 
   const outDir = "./ethers-contracts";
