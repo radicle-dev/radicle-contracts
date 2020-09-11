@@ -85,7 +85,7 @@ export async function deployDev(
 export async function deployExchange<P extends ethers.providers.Provider>(
   provider: P,
   signer: ethers.Signer
-) {
+): Promise<Exchange> {
   const signerAddr = await signer.getAddress();
 
   // Deploy tokens
