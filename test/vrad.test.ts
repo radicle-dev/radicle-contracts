@@ -1,14 +1,8 @@
 import buidler from "@nomiclabs/buidler";
 import {assert} from "chai";
-import {submit} from "./support";
+import {submit, elapseTime} from "./support";
 
 import {VRadFactory, RadFactory} from "../ethers-contracts";
-
-/// Let a certain amount of time pass.
-async function elapse(time: number) {
-  await buidler.ethers.provider.send("evm_increaseTime", [time]);
-  await buidler.ethers.provider.send("evm_mine", []);
-}
 
 describe("VRad", function () {
   it("is a vesting token", async function () {
@@ -70,13 +64,13 @@ describe("VRad", function () {
     assert.equal((await vrad.vestedBalanceOf(granteeAddress)).toNumber(), 0);
 
     // Advance time by half the cliff period.
-    await elapse(vestingCliff / 2);
+    await elapseTime(vestingCliff / 2);
 
     // Since we're still within the cliff, nothing is vested.
     assert.equal((await vrad.vestedBalanceOf(granteeAddress)).toNumber(), 0);
 
     // Advance time until the cliff is passed.
-    await elapse(vestingCliff / 2);
+    await elapseTime(vestingCliff / 2);
 
     // Cliff is passed, we vested 1/7.
     assert.equal((await vrad.vestedBalanceOf(granteeAddress)).toNumber(), 10);
