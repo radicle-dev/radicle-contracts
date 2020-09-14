@@ -22,6 +22,7 @@ import UniswapV2Router02 from "@uniswap/v2-periphery/build/UniswapV2Router02.jso
 import ERC20 from "@uniswap/v2-periphery/build/ERC20.json";
 import WETH9 from "@uniswap/v2-periphery/build/WETH9.json";
 import IUniswapV2Pair from "@uniswap/v2-core/build/IUniswapV2Pair.json";
+import ENSRegistry from "@ensdomains/ens/build/contracts/ENSRegistry.json";
 
 export interface DeployedContracts {
   registrar: Registrar;
@@ -82,17 +83,74 @@ export async function deployDev(
   };
 }
 
+export async function deployAll<P extends ethers.providers.Provider>(
+  provider: P,
+  signer: ethers.Signer
+): Promise<DeployedContracts> {
+  const rad = await deployRad(provider, signer);
+  const exchange = await deployExchange(rad, provider, signer);
+  const ens = (await deployContract(signer, ENSRegistry, [])) as Ens;
+  const registrar = await deployRegistrar(exchange, ens, provider, signer);
+
+  return {rad, exchange, registrar, ens};
+}
+
+export async function deployRad<P extends ethers.providers.Provider>(
+  _provider: P,
+  signer: ethers.Signer
+): Promise<Rad> {
+  const signerAddr = await signer.getAddress();
+  const radToken = await new RadFactory(signer).deploy(
+    signerAddr,
+    toDecimals(10000, 18)
+  );
+
+  return radToken;
+}
+
+export async function deployRegistrar<P extends ethers.providers.Provider>(
+  exchange: Exchange,
+  ens: Ens,
+  _provider: P,
+  signer: ethers.Signer
+): Promise<Registrar> {
+  const signerAddr = await signer.getAddress();
+  const oracle = await exchange.oracle();
+  const rad = await exchange.rad();
+  const registrar = await new RegistrarFactory(signer).deploy(
+    ens.address,
+    ensUtils.nameHash("radicle.eth"),
+    oracle,
+    exchange.address,
+    rad
+  );
+
+  await submitOk(
+    ens.setSubnodeOwner(
+      ensUtils.nameHash(""),
+      ensUtils.labelHash("eth"),
+      signerAddr
+    )
+  );
+  await submitOk(
+    ens.setSubnodeOwner(
+      ensUtils.nameHash("eth"),
+      ensUtils.labelHash("radicle"),
+      registrar.address
+    )
+  );
+
+  return registrar;
+}
+
 export async function deployExchange<P extends ethers.providers.Provider>(
+  radToken: Rad,
   provider: P,
   signer: ethers.Signer
 ): Promise<Exchange> {
   const signerAddr = await signer.getAddress();
 
   // Deploy tokens
-  const radToken = await new RadFactory(signer).deploy(
-    signerAddr,
-    toDecimals(10000, 18)
-  );
   const usdToken = await deployContract(signer, ERC20, [toDecimals(10000, 18)]);
   const wethToken = await deployContract(signer, WETH9, []);
 
