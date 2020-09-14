@@ -180,7 +180,7 @@ export async function deployExchange<P extends ethers.providers.Provider>(
     provider
   ).connect(signer);
 
-  // Transfer USD into the WETH/RAD pair.
+  // Transfer USD into the USD/WETH pair.
   await usdToken.transfer(usdWethAddr, toDecimals(10, 18));
 
   // Transfer WETH into the USD/WETH pair.
