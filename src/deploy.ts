@@ -32,7 +32,7 @@ export interface DeployedContracts {
 }
 
 // Deploy development contract infrastructure.
-export async function deployDev(
+export async function deployDummy(
   signer: ethers.Signer
 ): Promise<DeployedContracts> {
   const signerAddr = await signer.getAddress();
