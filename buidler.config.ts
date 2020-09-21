@@ -30,6 +30,15 @@ task(TASK_COMPILE).setAction(async (_, {config}, runSuper) => {
   console.log(`Successfully generated Typechain artifacts!`);
 });
 
+import {TASK_COMPILE_GET_COMPILER_INPUT} from "@nomiclabs/buidler/builtin-tasks/task-names";
+
+task(TASK_COMPILE_GET_COMPILER_INPUT).setAction(async (_, __, runSuper) => {
+  const input = await runSuper();
+  // input.settings.metadata.useLiteralContent = true;
+  input.settings.outputSelection["*"]["*"].push("storageLayout");
+  return input;
+});
+
 async function typeChain(files: string, outDir: string): Promise<void> {
   const cwd = process.cwd();
   await tsGenerator(
