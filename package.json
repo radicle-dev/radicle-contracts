@@ -30,6 +30,7 @@
   },
   "scripts": {
     "build": "buidler compile && tsc",
+    "prepare": "yarn prepack",
     "prepack": "yarn build",
     "test": "buidler test",
     "lint": "yarn run lint:prettier:check && yarn run lint:solhint && yarn run lint:eslint",
