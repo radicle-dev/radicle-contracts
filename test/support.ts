@@ -19,7 +19,7 @@ export async function submit(
 }
 
 /// Let a certain amount of time pass.
-export async function elapseTime(time: number) {
+export async function elapseTime(time: number): Promise<void> {
   await buidler.ethers.provider.send("evm_increaseTime", [time]);
   await buidler.ethers.provider.send("evm_mine", []);
 }

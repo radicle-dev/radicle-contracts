@@ -1,5 +1,6 @@
 import assert from "assert";
 import * as ethers from "ethers";
+import * as abi from "@ethersproject/abi";
 
 import {Registrar} from "../ethers-contracts/Registrar";
 import {Rad} from "../ethers-contracts/Rad";
@@ -238,18 +239,23 @@ async function submitOk(
   return receipt;
 }
 
-const deployContract = async (
+interface CompilerOutput {
+  abi: abi.JsonFragment[];
+  bytecode: string;
+}
+
+async function deployContract(
   signer: ethers.Signer,
-  contractJSON: any,
-  args: Array<any>
-) => {
+  compilerOutput: CompilerOutput,
+  args: Array<unknown>
+): Promise<ethers.Contract> {
   const factory = new ethers.ContractFactory(
-    contractJSON.abi,
-    contractJSON.bytecode,
+    compilerOutput.abi,
+    compilerOutput.bytecode,
     signer
   );
   return factory.deploy(...args);
-};
+}
 
 function toDecimals(n: number, exp: number): ethers.BigNumber {
   return ethers.BigNumber.from(n).mul(ethers.BigNumber.from(10).pow(exp));

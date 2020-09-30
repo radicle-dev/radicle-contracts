@@ -1,9 +1,11 @@
 import {PoolFactory, ReceiverWeightsTestFactory} from "../ethers-contracts";
+import {Pool} from "../ethers-contracts/Pool";
+import {ReceiverWeightsTest} from "../ethers-contracts/ReceiverWeightsTest";
 import buidler from "@nomiclabs/buidler";
 
 import {assert} from "chai";
 
-async function deployPool() {
+async function deployPool(): Promise<Pool> {
   const [signer] = await buidler.ethers.getSigners();
   return new PoolFactory(signer).deploy().then((pool) => pool.deployed());
 }
@@ -14,7 +16,7 @@ describe("Pool", function () {
     await pool
       .withdraw(1)
       .then(() => assert.fail())
-      .catch((error) =>
+      .catch((error: Error) =>
         assert(error.message.endsWith("Not enough funds in account"))
       );
   });
@@ -32,20 +34,20 @@ describe("Pool", function () {
     await pool
       .withdraw(101)
       .then(() => assert.fail())
-      .catch((error) =>
+      .catch((error: Error) =>
         assert(error.message.endsWith("Not enough funds in account"))
       );
   });
 });
 
-async function deployReceiverWeightsTest() {
+async function deployReceiverWeightsTest(): Promise<ReceiverWeightsTest> {
   const [signer] = await buidler.ethers.getSigners();
   return new ReceiverWeightsTestFactory(signer)
     .deploy()
     .then((weights) => weights.deployed());
 }
 
-async function addr(idx: number) {
+async function addr(idx: number): Promise<string> {
   const signers = await buidler.ethers.getSigners();
   return await signers[idx].getAddress();
 }

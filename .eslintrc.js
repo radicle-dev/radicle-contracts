@@ -7,4 +7,7 @@ module.exports = {
   plugins: ["@typescript-eslint"],
   extends: ["eslint:recommended", "plugin:@typescript-eslint/recommended"],
   ignorePatterns: ["build/**", "ethers-contracts/**", "cache/**"],
+  rules: {
+    "@typescript-eslint/explicit-function-return-type": "error",
+  },
 };
