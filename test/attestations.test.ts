@@ -13,10 +13,11 @@ describe("Attestations", function () {
     await attestationRegistry.deployed();
 
     const id = ethers.utils.randomBytes(32);
+    const rev = ethers.utils.randomBytes(32);
     const pk = ethers.utils.randomBytes(32);
     const sig = new Array(64).fill(0);
 
-    await submit(attestationRegistry.attest(id, pk, sig));
+    await submit(attestationRegistry.attest(id, rev, pk, sig));
 
     const attestation = await attestationRegistry.attestations(address);
     assert.equal(attestation.id, ethers.utils.hexlify(id));
