@@ -1,7 +1,7 @@
 import {ethers} from "@nomiclabs/buidler";
 import {assert} from "chai";
 import {submit} from "./support";
-import {AttestationRegistryFactory} from "../ethers-contracts";
+import {AttestationRegistryFactory} from "../contract-bindings/ethers";
 
 describe("Attestations", function () {
   it("should allow attestations to be made and revoked", async function () {

@@ -1,6 +1,6 @@
 /artifacts
 /build
 /cache
-/ethers-contracts
+/contract-bindings
 /yarn-error.log
 /node_modules

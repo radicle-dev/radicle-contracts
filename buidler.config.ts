@@ -20,11 +20,10 @@ export default {
 task(TASK_COMPILE).setAction(async (_, {config}, runSuper) => {
   await runSuper();
 
-  const outDir = "./ethers-contracts";
-  await typeChain(`${config.paths.artifacts}/*.json`, outDir);
+  await typeChain(`${config.paths.artifacts}/*.json`, ".");
   await typeChain(
     "./node_modules/@uniswap/v2-*/build/UniswapV2*.json",
-    path.join(outDir, "uniswap-v2")
+    "uniswap-v2"
   );
 
   console.log(`Successfully generated Typechain artifacts!`);
@@ -39,17 +38,25 @@ task(TASK_COMPILE_GET_COMPILER_INPUT).setAction(async (_, __, runSuper) => {
   return input;
 });
 
-async function typeChain(files: string, outDir: string): Promise<void> {
+async function typeChain(files: string, modulePath: string): Promise<void> {
+  const outDir = "./contract-bindings";
   const cwd = process.cwd();
-  await tsGenerator(
-    {cwd},
+  await tsGenerator({cwd}, [
     new TypeChain({
       cwd,
       rawConfig: {
         files,
-        outDir,
+        outDir: path.join(outDir, "ethers", modulePath),
         target: "ethers-v5",
       },
-    })
-  );
+    }),
+    new TypeChain({
+      cwd,
+      rawConfig: {
+        files,
+        outDir: path.join(outDir, "web3", modulePath),
+        target: "web3-v1",
+      },
+    }),
+  ]);
 }

@@ -2,10 +2,10 @@ import assert from "assert";
 import * as ethers from "ethers";
 import * as abi from "@ethersproject/abi";
 
-import {Registrar} from "../ethers-contracts/Registrar";
-import {Rad} from "../ethers-contracts/Rad";
-import {Ens} from "../ethers-contracts/Ens";
-import {Exchange} from "../ethers-contracts/Exchange";
+import {Registrar} from "../contract-bindings/ethers/Registrar";
+import {Rad} from "../contract-bindings/ethers/Rad";
+import {Ens} from "../contract-bindings/ethers/Ens";
+import {Exchange} from "../contract-bindings/ethers/Exchange";
 import {
   DummyPriceOracleFactory,
   DummyEnsRegistryFactory,
@@ -15,7 +15,7 @@ import {
   RegistrarFactory,
   FixedWindowOracleFactory,
   StablePriceOracleFactory,
-} from "../ethers-contracts";
+} from "../contract-bindings/ethers";
 import * as ensUtils from "./ens";
 
 import UniswapV2Factory from "@uniswap/v2-core/build/UniswapV2Factory.json";
