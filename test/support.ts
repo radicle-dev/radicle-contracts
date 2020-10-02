@@ -15,6 +15,8 @@ export async function submit(
   const receipt = await (await tx).wait();
   assert.equal(receipt.status, 1, "transaction must be successful");
 
+  console.log("Gas used: ", receipt.gasUsed.toString());
+
   return receipt;
 }
 
