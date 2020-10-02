@@ -1,6 +1,9 @@
-import {PoolFactory, ReceiverWeightsTestFactory} from "../ethers-contracts";
-import {Pool} from "../ethers-contracts/Pool";
-import {ReceiverWeightsTest} from "../ethers-contracts/ReceiverWeightsTest";
+import {
+  PoolFactory,
+  ReceiverWeightsTestFactory,
+} from "../contract-bindings/ethers";
+import {Pool} from "../contract-bindings/ethers/Pool";
+import {ReceiverWeightsTest} from "../contract-bindings/ethers/ReceiverWeightsTest";
 import buidler from "@nomiclabs/buidler";
 
 import {assert} from "chai";

@@ -2,7 +2,7 @@ import buidler from "@nomiclabs/buidler";
 import {assert} from "chai";
 import {submit, elapseTime} from "./support";
 
-import {VRadFactory, RadFactory} from "../ethers-contracts";
+import {VRadFactory, RadFactory} from "../contract-bindings/ethers";
 
 describe("VRad", function () {
   it("is a vesting token", async function () {

@@ -6,7 +6,7 @@ module.exports = {
   parser: "@typescript-eslint/parser",
   plugins: ["@typescript-eslint"],
   extends: ["eslint:recommended", "plugin:@typescript-eslint/recommended"],
-  ignorePatterns: ["build/**", "ethers-contracts/**", "cache/**"],
+  ignorePatterns: ["build/**", "contract-bindings/**", "cache/**"],
   rules: {
     "@typescript-eslint/explicit-function-return-type": "error",
   },
