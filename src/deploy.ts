@@ -7,10 +7,7 @@ import {Rad} from "../contract-bindings/ethers/Rad";
 import {Ens} from "../contract-bindings/ethers/Ens";
 import {Exchange} from "../contract-bindings/ethers/Exchange";
 import {
-  DummyPriceOracleFactory,
-  DummyEnsRegistryFactory,
   RadFactory,
-  DummyRouterFactory,
   ExchangeFactory,
   RegistrarFactory,
   FixedWindowOracleFactory,
@@ -32,74 +29,18 @@ export interface DeployedContracts {
   ens: Ens;
 }
 
-// Deploy development contract infrastructure.
-export async function deployDummy(
+export async function deployAll(
   signer: ethers.Signer
 ): Promise<DeployedContracts> {
-  const signerAddr = await signer.getAddress();
-  const oracle = await new DummyPriceOracleFactory(signer).deploy(1);
-  const ens = await new DummyEnsRegistryFactory(signer).deploy();
-  const rad = await new RadFactory(signer).deploy(signerAddr, 1e6);
-  const router = await new DummyRouterFactory(signer).deploy(rad.address);
-  const exchange = await new ExchangeFactory(signer).deploy(
-    rad.address,
-    router.address,
-    oracle.address
-  );
-  const registrar = await new RegistrarFactory(signer).deploy(
-    ens.address,
-    ensUtils.nameHash("radicle.eth"),
-    oracle.address,
-    exchange.address,
-    rad.address
-  );
-
-  await registrar.deployed();
-  await oracle.deployed();
-  await ens.deployed();
-  await rad.deployed();
-  await router.deployed();
-  await exchange.deployed();
-  await (await rad.connect(signer).transfer(router.address, 1e3)).wait();
-  await submitOk(
-    ens.setSubnodeOwner(
-      ensUtils.nameHash(""),
-      ensUtils.labelHash("eth"),
-      signerAddr
-    )
-  );
-  await submitOk(
-    ens.setSubnodeOwner(
-      ensUtils.nameHash("eth"),
-      ensUtils.labelHash("radicle"),
-      registrar.address
-    )
-  );
-
-  return {
-    registrar,
-    exchange,
-    rad,
-    ens,
-  };
-}
-
-export async function deployAll<P extends ethers.providers.Provider>(
-  provider: P,
-  signer: ethers.Signer
-): Promise<DeployedContracts> {
-  const rad = await deployRad(provider, signer);
-  const exchange = await deployExchange(rad, provider, signer);
+  const rad = await deployRad(signer);
+  const exchange = await deployExchange(rad, signer);
   const ens = (await deployContract(signer, ENSRegistry, [])) as Ens;
-  const registrar = await deployRegistrar(exchange, ens, provider, signer);
+  const registrar = await deployRegistrar(exchange, ens, signer);
 
   return {rad, exchange, registrar, ens};
 }
 
-export async function deployRad<P extends ethers.providers.Provider>(
-  _provider: P,
-  signer: ethers.Signer
-): Promise<Rad> {
+export async function deployRad(signer: ethers.Signer): Promise<Rad> {
   const signerAddr = await signer.getAddress();
   const radToken = await new RadFactory(signer).deploy(
     signerAddr,
@@ -109,10 +50,9 @@ export async function deployRad<P extends ethers.providers.Provider>(
   return radToken;
 }
 
-export async function deployRegistrar<P extends ethers.providers.Provider>(
+export async function deployRegistrar(
   exchange: Exchange,
   ens: Ens,
-  _provider: P,
   signer: ethers.Signer
 ): Promise<Registrar> {
   const signerAddr = await signer.getAddress();
@@ -144,9 +84,8 @@ export async function deployRegistrar<P extends ethers.providers.Provider>(
   return registrar;
 }
 
-export async function deployExchange<P extends ethers.providers.Provider>(
+export async function deployExchange(
   radToken: Rad,
-  provider: P,
   signer: ethers.Signer
 ): Promise<Exchange> {
   const signerAddr = await signer.getAddress();
@@ -156,9 +95,7 @@ export async function deployExchange<P extends ethers.providers.Provider>(
   const wethToken = await deployContract(signer, WETH9, []);
 
   // Deposit ETH into WETH contract
-  await submitOk(
-    wethToken.connect(signer).deposit({value: toDecimals(100, 18)})
-  );
+  await submitOk(wethToken.deposit({value: toDecimals(100, 18)}));
 
   // Deploy Uniswap factory & router
   const factory = await deployContract(signer, UniswapV2Factory, [signerAddr]);
@@ -178,14 +115,14 @@ export async function deployExchange<P extends ethers.providers.Provider>(
   const usdWethPair = new ethers.Contract(
     usdWethAddr,
     JSON.stringify(IUniswapV2Pair.abi),
-    provider
-  ).connect(signer);
+    signer
+  );
 
   // Transfer USD into the USD/WETH pair.
   await usdToken.transfer(usdWethAddr, toDecimals(10, 18));
 
   // Transfer WETH into the USD/WETH pair.
-  await wethToken.connect(signer).transfer(usdWethAddr, toDecimals(10, 18));
+  await wethToken.transfer(usdWethAddr, toDecimals(10, 18));
   await submitOk(usdWethPair.sync());
 
   /////////////////////////////////////////////////////////////////////////////
@@ -199,14 +136,14 @@ export async function deployExchange<P extends ethers.providers.Provider>(
   const wethRadPair = new ethers.Contract(
     wethRadAddr,
     JSON.stringify(IUniswapV2Pair.abi),
-    provider
-  ).connect(signer);
+    signer
+  );
 
   // Transfer RAD into the WETH/RAD pair.
   await radToken.transfer(wethRadAddr, toDecimals(10, 18));
 
   // Transfer WETH into the WETH/RAD pair.
-  await wethToken.connect(signer).transfer(wethRadAddr, toDecimals(10, 18));
+  await wethToken.transfer(wethRadAddr, toDecimals(10, 18));
   await submitOk(wethRadPair.sync());
 
   /////////////////////////////////////////////////////////////////////////////
@@ -234,7 +171,7 @@ async function submitOk(
   tx: Promise<ethers.ContractTransaction>
 ): Promise<ethers.ContractReceipt> {
   const receipt = await (await tx).wait();
-  assert.equal(receipt.status, 1, "transaction must be successful");
+  assert.strictEqual(receipt.status, 1, "transaction must be successful");
 
   return receipt;
 }

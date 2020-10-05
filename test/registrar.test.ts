@@ -7,7 +7,7 @@ import * as ensUtils from "../src/ens";
 describe("Registrar", function () {
   it("should allow registration of names", async function () {
     const [owner, registrant] = await ethers.getSigners();
-    const {rad, registrar, ens} = await deployAll(ethers.provider, owner);
+    const {rad, registrar, ens} = await deployAll(owner);
     const registrantAddr = await registrant.getAddress();
 
     // Let 24 hours pass. This is the minimum to ensure we have a price
