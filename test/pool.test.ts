@@ -12,6 +12,23 @@ async function addr(idx: number): Promise<string> {
   return await (await buidler.ethers.getSigners())[idx].getAddress();
 }
 
+// Call a function `fn` on the next block to be mined without actually mining it.
+//
+// This is needed because of the way the test EVM is working.
+// When a non-`view` contract function is called, a new block is created, then the
+// function is called and then the block is mined.
+// On the other hand `view` functions are called on the last block, without mining.
+// It means that `view` functions are called on block `N`, but non-view on `N+1`.
+// It may be problematic in some tests, because they will see slightly different blockchain states.
+// This function allows a `view` function to see exactly the same state as the next non-`view` one.
+async function callOnNextBlock<T>(fn: () => T): Promise<T> {
+  const snapshot = await buidler.ethers.provider.send("evm_snapshot", []);
+  await mineBlocks(1);
+  const returned = await fn();
+  await buidler.ethers.provider.send("evm_revert", [snapshot]);
+  return returned;
+}
+
 const CYCLE_BLOCKS = 10;
 
 async function deployPool(signer: Signer): Promise<Pool> {
@@ -20,9 +37,11 @@ async function deployPool(signer: Signer): Promise<Pool> {
     .then((pool) => pool.deployed());
 }
 
+// The next transaction will be executed on the first block of the next cycle,
+// but the next call will be executed on the last block of the current cycle
 async function mineBlocksUntilCycleEnd(): Promise<void> {
   const blockNumber = await buidler.ethers.provider.getBlockNumber();
-  await mineBlocks(CYCLE_BLOCKS - (blockNumber % CYCLE_BLOCKS));
+  await mineBlocks(CYCLE_BLOCKS - ((blockNumber + 1) % CYCLE_BLOCKS));
 }
 
 async function mineBlocks(count: number): Promise<void> {
@@ -31,47 +50,106 @@ async function mineBlocks(count: number): Promise<void> {
   }
 }
 
+async function collect(pool: Pool, amount: number): Promise<void> {
+  await expectCollectableOnNextBlock(pool, amount);
+  const balanceBefore = await pool.signer.getBalance();
+  await pool.collect({gasPrice: 0});
+  const balanceAfter = await pool.signer.getBalance();
+  const collected = balanceAfter.sub(balanceBefore).toNumber();
+  expect(collected).to.equal(
+    amount,
+    "The collected amount is different from the expected amount"
+  );
+  await expectCollectable(pool, 0);
+}
+
+async function topUp(
+  pool: Pool,
+  amountFrom: number,
+  amountTo: number
+): Promise<void> {
+  await expectWithdrawableOnNextBlock(pool, amountFrom);
+  await pool.topUp({value: amountTo - amountFrom});
+  await expectWithdrawable(pool, amountTo);
+}
+
+async function withdraw(
+  pool: Pool,
+  amountFrom: number,
+  amountTo: number
+): Promise<void> {
+  await expectWithdrawableOnNextBlock(pool, amountFrom);
+  const amount = amountFrom - amountTo;
+  const balanceBefore = await pool.signer.getBalance();
+  await pool.withdraw(amount, {gasPrice: 0});
+  const balanceAfter = await pool.signer.getBalance();
+  const withdrawn = balanceAfter.sub(balanceBefore).toNumber();
+  expect(withdrawn).to.equal(
+    amount,
+    "The withdrawn amount is different from the requested amount"
+  );
+  await expectWithdrawable(pool, amountTo);
+}
+
+async function expectCollectableOnNextBlock(
+  pool: Pool,
+  amount: number
+): Promise<void> {
+  await callOnNextBlock(async () => {
+    await expectCollectable(pool, amount);
+  });
+}
+
+async function expectCollectable(pool: Pool, amount: number): Promise<void> {
+  const collectable = (await pool.collectable()).toNumber();
+  expect(collectable).to.equal(
+    amount,
+    "The collectable amount is different from the expected amount"
+  );
+}
+
+async function expectWithdrawableOnNextBlock(
+  pool: Pool,
+  amount: number
+): Promise<void> {
+  await callOnNextBlock(async () => {
+    await expectWithdrawable(pool, amount);
+  });
+}
+
+async function expectWithdrawable(pool: Pool, amount: number): Promise<void> {
+  const withdrawable = (await pool.withdrawable()).toNumber();
+  expect(withdrawable).to.equal(
+    amount,
+    "The withdrawable amount is different from the expected amount"
+  );
+}
+
 describe("Pool", function () {
   it("Sends some funds between accounts", async function () {
     const [sender, receiver] = await buidler.ethers.getSigners();
     const receiverAddr = await receiver.getAddress();
     const senderPool = await deployPool(sender);
-    await mineBlocksUntilCycleEnd();
-
-    // Start sending
-    await senderPool.topUp({value: 100});
-    await senderPool.setAmountPerBlock(1);
-    await senderPool.setReceiver(receiverAddr, 1);
-    await mineBlocksUntilCycleEnd(); // 7 blocks left until cycle end
-    await mineBlocksUntilCycleEnd();
     const receiverPool = senderPool.connect(receiver);
 
-    // Collect what was sent
-    let balanceBefore = await receiver.getBalance();
-    await receiverPool.collect({gasPrice: 0});
-    let received = (await receiver.getBalance()).sub(balanceBefore).toNumber();
-    // 17 blocks have passed in finished cycles since funding started
-    expect(received).to.equal(17);
+    await mineBlocksUntilCycleEnd();
+    // Start sending
+    await topUp(senderPool, 0, 100);
+    await senderPool.setAmountPerBlock(1);
+    await senderPool.setReceiver(receiverAddr, 1);
+    await mineBlocksUntilCycleEnd();
     await mineBlocksUntilCycleEnd();
 
-    // Withdraw what is left
-    balanceBefore = await sender.getBalance();
-    // 27 blocks have passed before withdrawal and one during
-    await senderPool.withdraw(72, {gasPrice: 0});
-    received = (await sender.getBalance()).sub(balanceBefore).toNumber();
-    expect(received).to.equal(72);
-    await mineBlocksUntilCycleEnd();
+    // Collect what was sent, 18 paying blocks have passed in finished cycles since funding started
+    await collect(receiverPool, 18);
 
-    expect(await (await senderPool.withdrawable()).toNumber()).to.equal(0);
+    await mineBlocksUntilCycleEnd();
+    // Withdraw what is left, 28 paying blocks have passed since funding started
+    await withdraw(senderPool, 72, 0);
 
-    // Collect what was sent before withdrawal
     await mineBlocksUntilCycleEnd();
-    balanceBefore = await receiver.getBalance();
-    await receiverPool.collect({gasPrice: 0});
-    received = (await receiver.getBalance()).sub(balanceBefore).toNumber();
-    // Sender sent 28, 17 was withdrawn before
-    expect(received).to.equal(11);
-    await mineBlocksUntilCycleEnd();
+    // Collect what was sent before withdrawal, sender sent 28, 18 was withdrawn before
+    await collect(receiverPool, 10);
   });
 });
 
