@@ -5,41 +5,73 @@ import {
 import {Pool} from "../contract-bindings/ethers/Pool";
 import {ReceiverWeightsTest} from "../contract-bindings/ethers/ReceiverWeightsTest";
 import buidler from "@nomiclabs/buidler";
+import {Signer} from "ethers";
+import {assert, expect} from "chai";
 
-import {assert} from "chai";
+async function addr(idx: number): Promise<string> {
+  return await (await buidler.ethers.getSigners())[idx].getAddress();
+}
 
-async function deployPool(): Promise<Pool> {
-  const [signer] = await buidler.ethers.getSigners();
-  return new PoolFactory(signer).deploy().then((pool) => pool.deployed());
+const CYCLE_BLOCKS = 10;
+
+async function deployPool(signer: Signer): Promise<Pool> {
+  return new PoolFactory(signer)
+    .deploy(CYCLE_BLOCKS)
+    .then((pool) => pool.deployed());
+}
+
+async function mineBlocksUntilCycleEnd(): Promise<void> {
+  const blockNumber = await buidler.ethers.provider.getBlockNumber();
+  await mineBlocks(CYCLE_BLOCKS - (blockNumber % CYCLE_BLOCKS));
+}
+
+async function mineBlocks(count: number): Promise<void> {
+  for (let i = 0; i < count; i++) {
+    await buidler.ethers.provider.send("evm_mine", []);
+  }
 }
 
 describe("Pool", function () {
-  it("rejects withdrawal from an empty account", async function () {
-    const pool = await deployPool();
-    await pool
-      .withdraw(1)
-      .then(() => assert.fail())
-      .catch((error: Error) =>
-        assert(error.message.endsWith("Not enough funds in account"))
-      );
-  });
+  it("Sends some funds between accounts", async function () {
+    const [sender, receiver] = await buidler.ethers.getSigners();
+    const receiverAddr = await receiver.getAddress();
+    const senderPool = await deployPool(sender);
+    await mineBlocksUntilCycleEnd();
 
-  it("allows withdrawal from an account up to its value", async function () {
-    const pool = await deployPool();
-    await pool.topUp({value: 100});
-    await pool.withdraw(99);
-    await pool.withdraw(1);
-  });
+    // Start sending
+    await senderPool.topUp({value: 100});
+    await senderPool.setAmountPerBlock(1);
+    await senderPool.setReceiver(receiverAddr, 1);
+    await mineBlocksUntilCycleEnd(); // 7 blocks left until cycle end
+    await mineBlocksUntilCycleEnd();
+    const receiverPool = senderPool.connect(receiver);
 
-  it("rejects withdrawal from an account over its value", async function () {
-    const pool = await deployPool();
-    await pool.topUp({value: 100});
-    await pool
-      .withdraw(101)
-      .then(() => assert.fail())
-      .catch((error: Error) =>
-        assert(error.message.endsWith("Not enough funds in account"))
-      );
+    // Collect what was sent
+    let balanceBefore = await receiver.getBalance();
+    await receiverPool.collect({gasPrice: 0});
+    let received = (await receiver.getBalance()).sub(balanceBefore).toNumber();
+    // 17 blocks have passed in finished cycles since funding started
+    expect(received).to.equal(17);
+    await mineBlocksUntilCycleEnd();
+
+    // Withdraw what is left
+    balanceBefore = await sender.getBalance();
+    // 27 blocks have passed before withdrawal and one during
+    await senderPool.withdraw(72, {gasPrice: 0});
+    received = (await sender.getBalance()).sub(balanceBefore).toNumber();
+    expect(received).to.equal(72);
+    await mineBlocksUntilCycleEnd();
+
+    expect(await (await senderPool.withdrawable()).toNumber()).to.equal(0);
+
+    // Collect what was sent before withdrawal
+    await mineBlocksUntilCycleEnd();
+    balanceBefore = await receiver.getBalance();
+    await receiverPool.collect({gasPrice: 0});
+    received = (await receiver.getBalance()).sub(balanceBefore).toNumber();
+    // Sender sent 28, 17 was withdrawn before
+    expect(received).to.equal(11);
+    await mineBlocksUntilCycleEnd();
   });
 });
 
@@ -50,18 +82,12 @@ async function deployReceiverWeightsTest(): Promise<ReceiverWeightsTest> {
     .then((weights) => weights.deployed());
 }
 
-async function addr(idx: number): Promise<string> {
-  const signers = await buidler.ethers.getSigners();
-  return await signers[idx].getAddress();
-}
-
 describe("ReceiverWeights", function () {
   it("Is empty on the beginning", async function () {
     const weights_test = await deployReceiverWeightsTest();
 
-    const tx = await weights_test.setWeights([]);
+    await weights_test.setWeights([]);
 
-    console.log("Gas used: ", (await tx.wait()).gasUsed.toString());
     assert((await weights_test.receiverWeightsSumDelta()).eq(0));
     const weights = await weights_test.getReceiverWeightsIterated();
     assert(weights.length == 0);
@@ -71,9 +97,8 @@ describe("ReceiverWeights", function () {
     const weights_test = await deployReceiverWeightsTest();
     const addr1 = await addr(1);
 
-    const tx = await weights_test.setWeights([{receiver: addr1, weight: 1}]);
+    await weights_test.setWeights([{receiver: addr1, weight: 1}]);
 
-    console.log("Gas used: ", (await tx.wait()).gasUsed.toString());
     assert((await weights_test.receiverWeightsSumDelta()).eq(1));
     const weights = await weights_test.getReceiverWeightsIterated();
     assert(weights.length == 1);
@@ -87,13 +112,12 @@ describe("ReceiverWeights", function () {
     const addr2 = await addr(2);
     const addr3 = await addr(3);
 
-    const tx = await weights_test.setWeights([
+    await weights_test.setWeights([
       {receiver: addr1, weight: 1},
       {receiver: addr2, weight: 2},
       {receiver: addr3, weight: 4},
     ]);
 
-    console.log("Gas used: ", (await tx.wait()).gasUsed.toString());
     assert((await weights_test.receiverWeightsSumDelta()).eq(1 + 2 + 4));
     const weights = await weights_test.getReceiverWeightsIterated();
     assert(weights.length == 3);
@@ -111,14 +135,13 @@ describe("ReceiverWeights", function () {
     const addr2 = await addr(2);
     const addr3 = await addr(3);
 
-    const tx = await weights_test.setWeights([
+    await weights_test.setWeights([
       {receiver: addr1, weight: 1},
       {receiver: addr2, weight: 2},
       {receiver: addr3, weight: 4},
       {receiver: addr1, weight: 0},
     ]);
 
-    console.log("Gas used: ", (await tx.wait()).gasUsed.toString());
     assert((await weights_test.receiverWeightsSumDelta()).eq(1 + 2 + 4 - 1));
     const weights = await weights_test.getReceiverWeightsIterated();
     assert(weights.length == 2);
@@ -134,7 +157,7 @@ describe("ReceiverWeights", function () {
     const addr2 = await addr(2);
     const addr3 = await addr(3);
 
-    const tx = await weights_test.setWeights([
+    await weights_test.setWeights([
       {receiver: addr1, weight: 1},
       {receiver: addr2, weight: 2},
       {receiver: addr3, weight: 4},
@@ -142,7 +165,6 @@ describe("ReceiverWeights", function () {
       {receiver: addr2, weight: 0},
     ]);
 
-    console.log("Gas used: ", (await tx.wait()).gasUsed.toString());
     assert(
       (await weights_test.receiverWeightsSumDelta()).eq(1 + 2 + 4 - 1 - 2)
     );
@@ -158,14 +180,13 @@ describe("ReceiverWeights", function () {
     const addr2 = await addr(2);
     const addr3 = await addr(3);
 
-    const tx = await weights_test.setWeights([
+    await weights_test.setWeights([
       {receiver: addr1, weight: 1},
       {receiver: addr2, weight: 2},
       {receiver: addr3, weight: 4},
       {receiver: addr3, weight: 0},
     ]);
 
-    console.log("Gas used: ", (await tx.wait()).gasUsed.toString());
     assert((await weights_test.receiverWeightsSumDelta()).eq(1 + 2 + 4 - 4));
     const weights = await weights_test.getReceiverWeightsIterated();
     assert(weights.length == 2);
@@ -181,7 +202,7 @@ describe("ReceiverWeights", function () {
     const addr2 = await addr(2);
     const addr3 = await addr(3);
 
-    const tx = await weights_test.setWeights([
+    await weights_test.setWeights([
       {receiver: addr1, weight: 1},
       {receiver: addr2, weight: 2},
       {receiver: addr3, weight: 4},
@@ -189,7 +210,6 @@ describe("ReceiverWeights", function () {
       {receiver: addr3, weight: 0},
     ]);
 
-    console.log("Gas used: ", (await tx.wait()).gasUsed.toString());
     assert(
       (await weights_test.receiverWeightsSumDelta()).eq(1 + 2 + 4 - 2 - 4)
     );
@@ -205,14 +225,13 @@ describe("ReceiverWeights", function () {
     const addr2 = await addr(2);
     const addr3 = await addr(3);
 
-    const tx = await weights_test.setWeights([
+    await weights_test.setWeights([
       {receiver: addr1, weight: 1},
       {receiver: addr2, weight: 2},
       {receiver: addr3, weight: 4},
       {receiver: addr2, weight: 0},
     ]);
 
-    console.log("Gas used: ", (await tx.wait()).gasUsed.toString());
     assert((await weights_test.receiverWeightsSumDelta()).eq(1 + 2 + 4 - 2));
     const weights = await weights_test.getReceiverWeightsIterated();
     assert(weights.length == 2);
@@ -229,7 +248,7 @@ describe("ReceiverWeights", function () {
     const addr3 = await addr(3);
     const addr4 = await addr(4);
 
-    const tx = await weights_test.setWeights([
+    await weights_test.setWeights([
       {receiver: addr1, weight: 1},
       {receiver: addr2, weight: 2},
       {receiver: addr3, weight: 4},
@@ -238,7 +257,6 @@ describe("ReceiverWeights", function () {
       {receiver: addr3, weight: 0},
     ]);
 
-    console.log("Gas used: ", (await tx.wait()).gasUsed.toString());
     assert(
       (await weights_test.receiverWeightsSumDelta()).eq(1 + 2 + 4 + 8 - 2 - 4)
     );
@@ -256,7 +274,7 @@ describe("ReceiverWeights", function () {
     const addr2 = await addr(2);
     const addr3 = await addr(3);
 
-    const tx = await weights_test.setWeights([
+    await weights_test.setWeights([
       {receiver: addr1, weight: 1},
       {receiver: addr2, weight: 2},
       {receiver: addr3, weight: 4},
@@ -265,7 +283,6 @@ describe("ReceiverWeights", function () {
       {receiver: addr3, weight: 0},
     ]);
 
-    console.log("Gas used: ", (await tx.wait()).gasUsed.toString());
     assert(
       (await weights_test.receiverWeightsSumDelta()).eq(1 + 2 + 4 - 1 - 2 - 4)
     );
@@ -279,14 +296,13 @@ describe("ReceiverWeights", function () {
     const addr2 = await addr(2);
     const addr3 = await addr(3);
 
-    const tx = await weights_test.setWeights([
+    await weights_test.setWeights([
       {receiver: addr1, weight: 1},
       {receiver: addr2, weight: 2},
       {receiver: addr3, weight: 4},
       {receiver: addr3, weight: 8},
     ]);
 
-    console.log("Gas used: ", (await tx.wait()).gasUsed.toString());
     assert(
       (await weights_test.receiverWeightsSumDelta()).eq(1 + 2 + 4 - 4 + 8)
     );
@@ -306,14 +322,13 @@ describe("ReceiverWeights", function () {
     const addr2 = await addr(2);
     const addr3 = await addr(3);
 
-    const tx = await weights_test.setWeights([
+    await weights_test.setWeights([
       {receiver: addr1, weight: 1},
       {receiver: addr2, weight: 2},
       {receiver: addr3, weight: 4},
       {receiver: addr2, weight: 8},
     ]);
 
-    console.log("Gas used: ", (await tx.wait()).gasUsed.toString());
     assert(
       (await weights_test.receiverWeightsSumDelta()).eq(1 + 2 + 4 - 2 + 8)
     );
@@ -333,14 +348,13 @@ describe("ReceiverWeights", function () {
     const addr2 = await addr(2);
     const addr3 = await addr(3);
 
-    const tx = await weights_test.setWeights([
+    await weights_test.setWeights([
       {receiver: addr1, weight: 1},
       {receiver: addr2, weight: 2},
       {receiver: addr3, weight: 4},
       {receiver: addr1, weight: 8},
     ]);
 
-    console.log("Gas used: ", (await tx.wait()).gasUsed.toString());
     assert(
       (await weights_test.receiverWeightsSumDelta()).eq(1 + 2 + 4 - 1 + 8)
     );

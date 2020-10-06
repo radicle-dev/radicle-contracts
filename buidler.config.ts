@@ -15,6 +15,10 @@ export default {
   solc: {
     version: "0.6.12",
   },
+  optimizer: {
+    enabled: true,
+    runs: 200,
+  },
 };
 
 task(TASK_COMPILE).setAction(async (_, {config}, runSuper) => {
