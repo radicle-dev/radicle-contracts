@@ -69,7 +69,9 @@ describe("Org", function () {
     // Should revert!
     await submit(org.connect(bob).anchorProject(id, rev, hash))
       .then(() => expect.fail("Expected error"))
-      .catch(() => {});
+      .catch(() => {
+        /* OK */
+      });
 
     // Ok
     await submit(org.connect(owner).anchorProject(id, rev, hash));
@@ -77,7 +79,9 @@ describe("Org", function () {
     // Should revert!
     await submit(org.connect(bob).removeProject(id))
       .then(() => expect.fail("Expected error"))
-      .catch(() => {});
+      .catch(() => {
+        /* OK */
+      });
   });
 
   it("should allow ownership to change", async function () {
@@ -90,7 +94,9 @@ describe("Org", function () {
     // Should revert!
     await submit(org.connect(bob).setOwner(bobAddr))
       .then(() => expect.fail("Expected error"))
-      .catch(() => {});
+      .catch(() => {
+        /* OK */
+      });
 
     // Ok
     await submit(org.connect(owner).setOwner(bobAddr));
@@ -98,7 +104,9 @@ describe("Org", function () {
     // Should revert!
     await submit(org.connect(owner).setOwner(ownerAddr))
       .then(() => expect.fail("Expected error"))
-      .catch(() => {});
+      .catch(() => {
+        /* OK */
+      });
 
     // Ok
     await submit(org.connect(bob).setOwner(ownerAddr));
@@ -109,8 +117,7 @@ describe("Org", function () {
     const ownerAddr = await owner.getAddress();
 
     const org = await new OrgFactory(owner).deploy(ownerAddr);
-
-    let ids = [];
+    const ids = [];
 
     for (let i = 0; i < 3; i++) {
       const id = ethers.utils.randomBytes(32);
