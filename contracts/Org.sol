@@ -15,11 +15,6 @@ contract Org {
     /// The values represent offsets into the `projects` array.
     mapping(bytes32 => Project) public projects;
 
-    modifier ownerOnly {
-        require(msg.sender == owner, "Only the org owner can perform this action");
-        _;
-    }
-
     /// Construct a new org instance, by providing an owner address.
     constructor(address _owner) public {
         owner = _owner;
@@ -31,6 +26,12 @@ contract Org {
     }
 
     // ~ All functions below should use the `ownerOnly` modifier ~
+
+    /// Functions that can only be called by the contract owner.
+    modifier ownerOnly {
+        require(msg.sender == owner, "Only the org owner can perform this action");
+        _;
+    }
 
     /// Set the org owner.
     function setOwner(address _owner) public ownerOnly {
