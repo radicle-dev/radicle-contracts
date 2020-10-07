@@ -21,7 +21,7 @@ contract Org {
     }
 
     /// Check whether a project exists.
-    function projectExists(bytes32 id) public returns (bool) {
+    function projectExists(bytes32 id) public view returns (bool) {
         return projects[id].hash != bytes32(0);
     }
 
