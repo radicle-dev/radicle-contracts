@@ -48,6 +48,7 @@
     "lint:prettier:write": "yarn lint:prettier --write"
   },
   "files": [
+    "artifacts/**",
     "src/**",
     "build/**",
     "contract-bindings/**"
