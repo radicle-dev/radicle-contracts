@@ -23,7 +23,7 @@ export async function submit(
 /// Submit a transaction and expect it to fail. Throws an error if it succeeds.
 export async function submitFailing(
   tx: Promise<Ethers.ContractTransaction>
-): void {
+): Promise<void> {
   let succeeded = false;
 
   try {
