@@ -24,21 +24,12 @@ export async function submit(
 export async function submitFailing(
   tx: Promise<Ethers.ContractTransaction>
 ): Promise<void> {
-  let succeeded = false;
-
   try {
-    const receipt = await (await tx).wait();
-
-    if (receipt.status == 1) {
-      succeeded = true;
-    }
+    await (await tx).wait();
   } catch {
-    /* OK */
+    return;
   }
-
-  if (succeeded) {
-    expect.fail("Expected transaction to fail");
-  }
+  expect.fail("Expected transaction to fail");
 }
 
 /// Let a certain amount of time pass.
