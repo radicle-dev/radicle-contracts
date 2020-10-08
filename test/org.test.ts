@@ -1,6 +1,6 @@
 import {ethers} from "@nomiclabs/buidler";
-import {assert, expect} from "chai";
-import {submit} from "./support";
+import {assert} from "chai";
+import {submit, submitFailing} from "./support";
 import {OrgFactory} from "../contract-bindings/ethers";
 
 describe("Org", function () {
@@ -67,21 +67,13 @@ describe("Org", function () {
     const hash = ethers.utils.randomBytes(32);
 
     // Should revert!
-    await submit(org.connect(bob).anchorProject(id, rev, hash))
-      .then(() => expect.fail("Expected error"))
-      .catch(() => {
-        /* OK */
-      });
+    await submitFailing(org.connect(bob).anchorProject(id, rev, hash));
 
     // Ok
     await submit(org.connect(owner).anchorProject(id, rev, hash));
 
     // Should revert!
-    await submit(org.connect(bob).removeProject(id))
-      .then(() => expect.fail("Expected error"))
-      .catch(() => {
-        /* OK */
-      });
+    await submitFailing(org.connect(bob).removeProject(id));
   });
 
   it("should allow ownership to change", async function () {
@@ -92,21 +84,13 @@ describe("Org", function () {
     const org = await new OrgFactory(owner).deploy(ownerAddr);
 
     // Should revert!
-    await submit(org.connect(bob).setOwner(bobAddr))
-      .then(() => expect.fail("Expected error"))
-      .catch(() => {
-        /* OK */
-      });
+    await submitFailing(org.connect(bob).setOwner(bobAddr));
 
     // Ok
     await submit(org.connect(owner).setOwner(bobAddr));
 
     // Should revert!
-    await submit(org.connect(owner).setOwner(ownerAddr))
-      .then(() => expect.fail("Expected error"))
-      .catch(() => {
-        /* OK */
-      });
+    await submitFailing(org.connect(owner).setOwner(ownerAddr));
 
     // Ok
     await submit(org.connect(bob).setOwner(ownerAddr));

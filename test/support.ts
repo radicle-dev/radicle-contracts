@@ -1,5 +1,5 @@
 import * as Ethers from "ethers";
-import {assert} from "chai";
+import {assert, expect} from "chai";
 import buidler from "@nomiclabs/buidler";
 
 export async function wait(
@@ -18,6 +18,23 @@ export async function submit(
   console.log("Gas used: ", receipt.gasUsed.toString());
 
   return receipt;
+}
+
+/// Submit a transaction and expect it to fail. Throws an error if it succeeds.
+export async function submitFailing(tx: Promise<Ethers.ContractTransaction>) {
+  let succeeded = false;
+
+  try {
+    const receipt = await (await tx).wait();
+
+    if (receipt.status == 1) {
+      succeeded = true;
+    }
+  } catch {}
+
+  if (succeeded) {
+    expect.fail("Expected transaction to fail");
+  }
 }
 
 /// Let a certain amount of time pass.
