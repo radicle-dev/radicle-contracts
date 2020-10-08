@@ -1,5 +1,5 @@
 import * as Ethers from "ethers";
-import {assert, expect} from "chai";
+import {expect} from "chai";
 import buidler from "@nomiclabs/buidler";
 
 export async function wait(
