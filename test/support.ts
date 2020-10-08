@@ -21,7 +21,9 @@ export async function submit(
 }
 
 /// Submit a transaction and expect it to fail. Throws an error if it succeeds.
-export async function submitFailing(tx: Promise<Ethers.ContractTransaction>) {
+export async function submitFailing(
+  tx: Promise<Ethers.ContractTransaction>
+): void {
   let succeeded = false;
 
   try {
@@ -30,7 +32,9 @@ export async function submitFailing(tx: Promise<Ethers.ContractTransaction>) {
     if (receipt.status == 1) {
       succeeded = true;
     }
-  } catch {}
+  } catch {
+    /* OK */
+  }
 
   if (succeeded) {
     expect.fail("Expected transaction to fail");
