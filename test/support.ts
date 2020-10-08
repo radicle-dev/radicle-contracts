@@ -13,7 +13,6 @@ export async function submit(
   tx: Promise<Ethers.ContractTransaction>
 ): Promise<Ethers.ContractReceipt> {
   const receipt = await (await tx).wait();
-  assert.equal(receipt.status, 1, "transaction must be successful");
 
   console.log("Gas used: ", receipt.gasUsed.toString());
 
