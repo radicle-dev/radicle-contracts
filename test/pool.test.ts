@@ -5,47 +5,17 @@ import {
 import {Pool} from "../contract-bindings/ethers/Pool";
 import {ReceiverWeightsTest} from "../contract-bindings/ethers/ReceiverWeightsTest";
 import buidler from "@nomiclabs/buidler";
-import {Signer, BigNumber, BigNumberish, ethers} from "ethers";
+import {Signer, BigNumber, BigNumberish} from "ethers";
 import {assert, expect} from "chai";
-
-async function addr(idx: number): Promise<string> {
-  return await (await buidler.ethers.getSigners())[idx].getAddress();
-}
-
-function randomAddress(): string {
-  return numberToAddress(ethers.utils.randomBytes(20));
-}
-
-function numberToAddress(num: BigNumberish): string {
-  const hex = ethers.utils.hexlify(num);
-  const padded = ethers.utils.hexZeroPad(hex, 20);
-  return ethers.utils.getAddress(padded);
-}
-
-function getRevertCause(error: Error): string {
-  return error.message.replace(
-    "VM Exception while processing transaction: revert ",
-    ""
-  );
-}
-
-// Call a function `fn` on the next block to be mined without actually mining it.
-//
-// This is needed because of the way the test EVM is working.
-// When a non-`view` contract function is called, a new block is created, then the
-// function is called and then the block is mined.
-// On the other hand `view` functions are called on the last block, without mining.
-// It means that `view` functions are called on block `N`, but non-view on `N+1`.
-// It may be problematic in some tests, because they will see slightly different blockchain states.
-// This function allows a `view` function to see exactly the same state as the next non-`view` one.
-async function callOnNextBlock<T>(fn: () => Promise<T>): Promise<T> {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-  const snapshot = await buidler.ethers.provider.send("evm_snapshot", []);
-  await mineBlocks(1);
-  const returned = await fn();
-  await buidler.ethers.provider.send("evm_revert", [snapshot]);
-  return returned;
-}
+import {
+  numberToAddress,
+  randomAddress,
+  randomAddresses,
+  mineBlocks,
+  callOnNextBlock,
+  submit,
+  submitFailing,
+} from "./support";
 
 const CYCLE_BLOCKS = 10;
 
@@ -80,16 +50,10 @@ async function mineBlocksUntilCycleEnd(): Promise<void> {
   await mineBlocks(CYCLE_BLOCKS - ((blockNumber + 1) % CYCLE_BLOCKS));
 }
 
-async function mineBlocks(count: number): Promise<void> {
-  for (let i = 0; i < count; i++) {
-    await buidler.ethers.provider.send("evm_mine", []);
-  }
-}
-
 async function collect(pool: Pool, amount: number): Promise<void> {
   await expectCollectableOnNextBlock(pool, amount);
   const balanceBefore = await pool.signer.getBalance();
-  await pool.collect({gasPrice: 0});
+  await submit(pool.collect({gasPrice: 0}), "collect");
   const balanceAfter = await pool.signer.getBalance();
   const collected = balanceAfter.sub(balanceBefore).toNumber();
   expect(collected).to.equal(
@@ -100,7 +64,7 @@ async function collect(pool: Pool, amount: number): Promise<void> {
 }
 
 async function setAmountPerBlock(pool: Pool, amount: number): Promise<void> {
-  await pool.setAmountPerBlock(amount);
+  await submit(pool.setAmountPerBlock(amount), "setAmountPerBlock");
   await expectAmountPerBlock(pool, amount);
 }
 
@@ -110,7 +74,7 @@ async function setReceiver(
   weight: number
 ): Promise<void> {
   const receivers = await getAllReceivers(pool);
-  await pool.setReceiver(address, weight);
+  await submit(pool.setReceiver(address, weight), "setReceiver");
   if (weight == 0) {
     receivers.delete(address);
   } else {
@@ -130,7 +94,7 @@ async function topUp(
   amountTo: number
 ): Promise<void> {
   await expectWithdrawableOnNextBlock(pool, amountFrom);
-  await pool.topUp({value: amountTo - amountFrom});
+  await submit(pool.topUp({value: amountTo - amountFrom}), "topUp");
   await expectWithdrawable(pool, amountTo);
 }
 
@@ -142,7 +106,7 @@ async function withdraw(
   await expectWithdrawableOnNextBlock(pool, amountFrom);
   const amount = amountFrom - amountTo;
   const balanceBefore = await pool.signer.getBalance();
-  await pool.withdraw(amount, {gasPrice: 0});
+  await submit(pool.withdraw(amount, {gasPrice: 0}), "withdraw");
   const balanceAfter = await pool.signer.getBalance();
   const withdrawn = balanceAfter.sub(balanceBefore).toNumber();
   expect(withdrawn).to.equal(
@@ -158,16 +122,11 @@ async function expectSetReceiverReverts(
   weight: number,
   expectedCause: string
 ): Promise<void> {
-  try {
-    await pool.setReceiver(address, weight);
-  } catch (error) {
-    expect(getRevertCause(error)).to.equal(
-      expectedCause,
-      "setReceiver failed because of an unexpected reason"
-    );
-    return;
-  }
-  expect.fail("setReceiver should have failed");
+  await submitFailing(
+    pool.setReceiver(address, weight),
+    "setReceiver",
+    expectedCause
+  );
 }
 
 async function expectCollectableOnNextBlock(
@@ -482,16 +441,11 @@ async function expectSetWeightsWithInvalidAddressReverts(
   weights_test: ReceiverWeightsTest,
   weights: {receiver: string; weight: BigNumberish}[]
 ): Promise<void> {
-  try {
-    await weights_test.setWeights(weights);
-  } catch (error) {
-    expect(getRevertCause(error)).to.equal(
-      "Invalid receiver address",
-      "setWeights failed because of an unexpected reason"
-    );
-    return;
-  }
-  expect.fail("setWeights should have failed");
+  await submitFailing(
+    weights_test.setWeights(weights),
+    "setWeights",
+    "Invalid receiver address"
+  );
 }
 
 describe("ReceiverWeights", function () {
@@ -507,7 +461,7 @@ describe("ReceiverWeights", function () {
 
   it("Keeps a single added item", async function () {
     const weights_test = await deployReceiverWeightsTest();
-    const addr1 = await addr(1);
+    const [addr1] = randomAddresses();
 
     await weights_test.setWeights([{receiver: addr1, weight: 1}]);
 
@@ -520,9 +474,7 @@ describe("ReceiverWeights", function () {
 
   it("Keeps multiple added items", async function () {
     const weights_test = await deployReceiverWeightsTest();
-    const addr1 = await addr(1);
-    const addr2 = await addr(2);
-    const addr3 = await addr(3);
+    const [addr1, addr2, addr3] = randomAddresses();
 
     await weights_test.setWeights([
       {receiver: addr1, weight: 1},
@@ -543,9 +495,7 @@ describe("ReceiverWeights", function () {
 
   it("Allows removing the last item", async function () {
     const weights_test = await deployReceiverWeightsTest();
-    const addr1 = await addr(1);
-    const addr2 = await addr(2);
-    const addr3 = await addr(3);
+    const [addr1, addr2, addr3] = randomAddresses();
 
     await weights_test.setWeights([
       {receiver: addr1, weight: 1},
@@ -565,9 +515,7 @@ describe("ReceiverWeights", function () {
 
   it("Allows removing two last items", async function () {
     const weights_test = await deployReceiverWeightsTest();
-    const addr1 = await addr(1);
-    const addr2 = await addr(2);
-    const addr3 = await addr(3);
+    const [addr1, addr2, addr3] = randomAddresses();
 
     await weights_test.setWeights([
       {receiver: addr1, weight: 1},
@@ -588,9 +536,7 @@ describe("ReceiverWeights", function () {
 
   it("Allows removing the first item", async function () {
     const weights_test = await deployReceiverWeightsTest();
-    const addr1 = await addr(1);
-    const addr2 = await addr(2);
-    const addr3 = await addr(3);
+    const [addr1, addr2, addr3] = randomAddresses();
 
     await weights_test.setWeights([
       {receiver: addr1, weight: 1},
@@ -610,9 +556,7 @@ describe("ReceiverWeights", function () {
 
   it("Allows removing two first items", async function () {
     const weights_test = await deployReceiverWeightsTest();
-    const addr1 = await addr(1);
-    const addr2 = await addr(2);
-    const addr3 = await addr(3);
+    const [addr1, addr2, addr3] = randomAddresses();
 
     await weights_test.setWeights([
       {receiver: addr1, weight: 1},
@@ -633,9 +577,7 @@ describe("ReceiverWeights", function () {
 
   it("Allows removing the middle item", async function () {
     const weights_test = await deployReceiverWeightsTest();
-    const addr1 = await addr(1);
-    const addr2 = await addr(2);
-    const addr3 = await addr(3);
+    const [addr1, addr2, addr3] = randomAddresses();
 
     await weights_test.setWeights([
       {receiver: addr1, weight: 1},
@@ -655,10 +597,7 @@ describe("ReceiverWeights", function () {
 
   it("Allows removing two middle items", async function () {
     const weights_test = await deployReceiverWeightsTest();
-    const addr1 = await addr(1);
-    const addr2 = await addr(2);
-    const addr3 = await addr(3);
-    const addr4 = await addr(4);
+    const [addr1, addr2, addr3, addr4] = randomAddresses();
 
     await weights_test.setWeights([
       {receiver: addr1, weight: 1},
@@ -682,9 +621,7 @@ describe("ReceiverWeights", function () {
 
   it("Allows removing all items", async function () {
     const weights_test = await deployReceiverWeightsTest();
-    const addr1 = await addr(1);
-    const addr2 = await addr(2);
-    const addr3 = await addr(3);
+    const [addr1, addr2, addr3] = randomAddresses();
 
     await weights_test.setWeights([
       {receiver: addr1, weight: 1},
@@ -704,9 +641,7 @@ describe("ReceiverWeights", function () {
 
   it("Allows updating the first item", async function () {
     const weights_test = await deployReceiverWeightsTest();
-    const addr1 = await addr(1);
-    const addr2 = await addr(2);
-    const addr3 = await addr(3);
+    const [addr1, addr2, addr3] = randomAddresses();
 
     await weights_test.setWeights([
       {receiver: addr1, weight: 1},
@@ -730,9 +665,7 @@ describe("ReceiverWeights", function () {
 
   it("Allows updating the middle item", async function () {
     const weights_test = await deployReceiverWeightsTest();
-    const addr1 = await addr(1);
-    const addr2 = await addr(2);
-    const addr3 = await addr(3);
+    const [addr1, addr2, addr3] = randomAddresses();
 
     await weights_test.setWeights([
       {receiver: addr1, weight: 1},
@@ -756,9 +689,7 @@ describe("ReceiverWeights", function () {
 
   it("Allows updating the last item", async function () {
     const weights_test = await deployReceiverWeightsTest();
-    const addr1 = await addr(1);
-    const addr2 = await addr(2);
-    const addr3 = await addr(3);
+    const [addr1, addr2, addr3] = randomAddresses();
 
     await weights_test.setWeights([
       {receiver: addr1, weight: 1},
