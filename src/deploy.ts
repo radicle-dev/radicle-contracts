@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
 import assert from "assert";
 import * as ethers from "ethers";
 import * as abi from "@ethersproject/abi";

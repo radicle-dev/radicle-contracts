@@ -38,7 +38,8 @@ function getRevertCause(error: Error): string {
 // It means that `view` functions are called on block `N`, but non-view on `N+1`.
 // It may be problematic in some tests, because they will see slightly different blockchain states.
 // This function allows a `view` function to see exactly the same state as the next non-`view` one.
-async function callOnNextBlock<T>(fn: () => T): Promise<T> {
+async function callOnNextBlock<T>(fn: () => Promise<T>): Promise<T> {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const snapshot = await buidler.ethers.provider.send("evm_snapshot", []);
   await mineBlocks(1);
   const returned = await fn();
