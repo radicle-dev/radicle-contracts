@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.6.2;
+pragma experimental ABIEncoderV2;
 
 /// @notice Funding pool contract. Automatically sends funds to a configurable set of receivers.
 ///
@@ -78,6 +79,11 @@ contract Pool {
         // The changes of collected amounts on specific cycle.
         // The keys are cycles, each cycle becomes collectable on block `C * cycleBlocks`
         mapping(uint64 => int256) amtDeltas;
+    }
+
+    struct ReceiverWeight {
+        address receiver;
+        uint32 weight;
     }
 
     /// @dev Details about all the senders, the key is the owner's address
@@ -176,6 +182,17 @@ contract Pool {
         senders[msg.sender].amtPerBlock = uint192(amount);
     }
 
+    /// @notice Gets the target amount sent on every block from the sender of the message.
+    /// The actual amount sent on every block may differ from the target value.
+    /// It's rounded down to the closest multiple of the sum of the weights of
+    /// the sender's receivers and split between them proportionally to their weights.
+    /// Each receiver then receives their part from the sender's balance.
+    /// If zero, funding is stopped.
+    /// @return amount The target per-block amount
+    function getAmountPerBlock() public view returns (uint192 amount) {
+        return senders[msg.sender].amtPerBlock;
+    }
+
     /// @notice Sets the weight of a receiver of the sender of the message.
     /// The weight regulates the share of the amount being sent on every block in relation to
     /// other sender's receivers.
@@ -195,6 +212,23 @@ contract Pool {
         } else if (weight == 0 && oldWeight != 0) {
             sender.weightCount--;
         }
+    }
+
+    /// @notice Gets the receivers and their weights of the sender of the message.
+    /// The weight regulates the share of the amount being sent on every block in relation to
+    /// other sender's receivers.
+    /// Only receivers with non-zero weights are returned.
+    function getAllReceivers() public view returns (ReceiverWeight[] memory) {
+        Sender storage sender = senders[msg.sender];
+        ReceiverWeight[] memory allReceivers = new ReceiverWeight[](sender.weightCount);
+        // Iterating over receivers, see `ReceiverWeights` for details
+        address receiver = ReceiverWeightsImpl.ADDR_ROOT;
+        for (uint256 i = 0; i < sender.weightCount; i++) {
+            uint32 weight;
+            (receiver, weight) = sender.receiverWeights.nextWeight(receiver);
+            allReceivers[i] = ReceiverWeight(receiver, weight);
+        }
+        return allReceivers;
     }
 
     /// @notice Stops payments of `msg.sender` for the duration of the modified function.
@@ -256,8 +290,8 @@ contract Pool {
         // Iterating over receivers, see `ReceiverWeights` for details
         address receiverAddr = ReceiverWeightsImpl.ADDR_ROOT;
         while (true) {
-            uint32 weight = 0;
-            (receiverAddr, weight) = sender.receiverWeights.nextWeight(receiverAddr);
+            uint32 weight;
+            (receiverAddr, weight) = sender.receiverWeights.nextWeightPruning(receiverAddr);
             if (weight == 0) break;
             Receiver storage receiver = receivers[receiverAddr];
             // The receiver was never used, initialize it
@@ -310,12 +344,12 @@ library ReceiverWeightsImpl {
     address internal constant ADDR_END = address(1);
 
     /// @notice Return the next non-zero receiver weight and its address.
-    /// Removes all the zeroed items found between the current and the next receivers.
-    /// Iterating over the whole list removes all the zeroed items.
+    /// Prunes all the zeroed items found between the current and the next receivers.
+    /// Iterating over the whole list prunes all the zeroed items.
     /// @param current The previously returned receiver address or ADDR_ROOT to start iterating
     /// @return next The next receiver address
     /// @return weight The next receiver weight, 0 if the end of the list was reached
-    function nextWeight(ReceiverWeights storage self, address current)
+    function nextWeightPruning(ReceiverWeights storage self, address current)
         internal
         returns (address next, uint32 weight)
     {
@@ -336,6 +370,28 @@ library ReceiverWeightsImpl {
                 // link the previous non-zero element with the next non-zero element
                 // or ADDR_END if it became the last element on the list
                 self.data[current].next = next;
+            }
+        }
+    }
+
+    /// @notice Return the next receiver weight and its address.
+    /// @param current The previously returned receiver address or ADDR_ROOT to start iterating
+    /// @return next The next receiver address
+    /// @return weight The next receiver weight, 0 if the end of the list was reached
+    function nextWeight(ReceiverWeights storage self, address current)
+        internal
+        view
+        returns (address next, uint32 weight)
+    {
+        next = self.data[current].next;
+        weight = 0;
+        if (next != ADDR_END && next != ADDR_UNINITIALIZED) {
+            weight = self.data[next].weight;
+            // skip elements being zero
+            while (weight == 0) {
+                next = self.data[next].next;
+                if (next == ADDR_END) break;
+                weight = self.data[next].weight;
             }
         }
     }

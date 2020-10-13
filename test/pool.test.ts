@@ -63,6 +63,31 @@ async function collect(pool: Pool, amount: number): Promise<void> {
   await expectCollectable(pool, 0);
 }
 
+async function setAmountPerBlock(pool: Pool, amount: number): Promise<void> {
+  await pool.setAmountPerBlock(amount);
+  await expectAmountPerBlock(pool, amount);
+}
+
+async function setReceiver(
+  pool: Pool,
+  address: string,
+  weight: number
+): Promise<void> {
+  const receivers = await getAllReceivers(pool);
+  await pool.setReceiver(address, weight);
+  if (weight == 0) {
+    receivers.delete(address);
+  } else {
+    receivers.set(address, weight);
+  }
+  expectReceivers(pool, receivers);
+}
+
+async function getAllReceivers(pool: Pool): Promise<Map<string, number>> {
+  const receivers = await pool.getAllReceivers();
+  return new Map(receivers.map(({receiver, weight}) => [receiver, weight]));
+}
+
 async function topUp(
   pool: Pool,
   amountFrom: number,
@@ -125,6 +150,22 @@ async function expectWithdrawable(pool: Pool, amount: number): Promise<void> {
   );
 }
 
+async function expectAmountPerBlock(pool: Pool, amount: number): Promise<void> {
+  const actualAmount = (await pool.getAmountPerBlock()).toNumber();
+  expect(actualAmount).to.equal(
+    amount,
+    "The amount per block is different from the expected amount"
+  );
+}
+
+async function expectReceivers(
+  pool: Pool,
+  receivers: Map<string, number>
+): Promise<void> {
+  const receiversActual = await getAllReceivers(pool);
+  expect(receiversActual).to.deep.equal(receivers, "Unexpected receivers list");
+}
+
 describe("Pool", function () {
   it("Sends some funds between accounts", async function () {
     const [sender, receiver] = await buidler.ethers.getSigners();
@@ -135,8 +176,8 @@ describe("Pool", function () {
     await mineBlocksUntilCycleEnd();
     // Start sending
     await topUp(senderPool, 0, 100);
-    await senderPool.setAmountPerBlock(1);
-    await senderPool.setReceiver(receiverAddr, 1);
+    await setAmountPerBlock(senderPool, 1);
+    await setReceiver(senderPool, receiverAddr, 1);
     await mineBlocksUntilCycleEnd();
     await mineBlocksUntilCycleEnd();
 
