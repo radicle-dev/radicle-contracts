@@ -36,9 +36,11 @@ task(TASK_COMPILE).setAction(async (_, {config}, runSuper) => {
 import {TASK_COMPILE_GET_COMPILER_INPUT} from "@nomiclabs/buidler/builtin-tasks/task-names";
 
 task(TASK_COMPILE_GET_COMPILER_INPUT).setAction(async (_, __, runSuper) => {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const input = await runSuper();
-  // input.settings.metadata.useLiteralContent = true;
+  // eslint-disable-next-line
   input.settings.outputSelection["*"]["*"].push("storageLayout");
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   return input;
 });
 
