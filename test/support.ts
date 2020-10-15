@@ -17,8 +17,8 @@ export async function submit(
   txName = "transaction"
 ): Promise<Ethers.ContractReceipt> {
   const receipt = await (await tx).wait();
-  if (PRINT_GAS_USAGE) {
-    console.log("Gas used for " + txName + ": ", receipt.gasUsed.toString());
+  if (PRINT_GAS_USAGE || process.env.PRINT_GAS_USAGE) {
+    console.log("Gas used for " + txName + ": " + receipt.gasUsed.toString());
   }
   return receipt;
 }
