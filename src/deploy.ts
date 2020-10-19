@@ -8,11 +8,11 @@ import {Registrar} from "../contract-bindings/ethers/Registrar";
 import {Rad} from "../contract-bindings/ethers/Rad";
 import {Ens} from "../contract-bindings/ethers/Ens";
 import {Exchange} from "../contract-bindings/ethers/Exchange";
-import {Pool} from "../contract-bindings/ethers/Pool";
+import {EthPool} from "../contract-bindings/ethers/EthPool";
 import {
   RadFactory,
   ExchangeFactory,
-  PoolFactory,
+  EthPoolFactory,
   RegistrarFactory,
   FixedWindowOracleFactory,
   StablePriceOracleFactory,
@@ -31,7 +31,7 @@ export interface DeployedContracts {
   exchange: Exchange;
   rad: Rad;
   ens: Ens;
-  pool: Pool;
+  ethPool: EthPool;
 }
 
 export async function deployAll(
@@ -41,9 +41,9 @@ export async function deployAll(
   const exchange = await deployExchange(rad, signer);
   const ens = (await deployContract(signer, ENSRegistry, [])) as Ens;
   const registrar = await deployRegistrar(exchange, ens, signer);
-  const pool = await deployPool(signer, 10);
+  const ethPool = await deployEthPool(signer, 10);
 
-  return {rad, exchange, registrar, ens, pool};
+  return {rad, exchange, registrar, ens, ethPool};
 }
 
 export async function deployRad(signer: ethers.Signer): Promise<Rad> {
@@ -173,11 +173,11 @@ export async function deployExchange(
   return exchange;
 }
 
-export async function deployPool(
+export async function deployEthPool(
   signer: ethers.Signer,
   cycleBlocks: number
-): Promise<Pool> {
-  return await new PoolFactory(signer).deploy(cycleBlocks);
+): Promise<EthPool> {
+  return await new EthPoolFactory(signer).deploy(cycleBlocks);
 }
 
 async function submitOk(
