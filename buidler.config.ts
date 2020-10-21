@@ -1,6 +1,9 @@
 import * as path from "path";
 import {usePlugin, task} from "@nomiclabs/buidler/config";
-import {TASK_COMPILE} from "@nomiclabs/buidler/builtin-tasks/task-names";
+import {
+  TASK_COMPILE,
+  TASK_COMPILE_GET_COMPILER_INPUT,
+} from "@nomiclabs/buidler/builtin-tasks/task-names";
 import {tsGenerator} from "ts-generator";
 import {TypeChain} from "typechain/dist/TypeChain";
 
@@ -23,17 +26,9 @@ export default {
 
 task(TASK_COMPILE).setAction(async (_, {config}, runSuper) => {
   await runSuper();
-
   await typeChain(`${config.paths.artifacts}/*.json`, ".");
-  await typeChain(
-    "./node_modules/@uniswap/v2-*/build/UniswapV2*.json",
-    "uniswap-v2"
-  );
-
   console.log(`Successfully generated Typechain artifacts!`);
 });
-
-import {TASK_COMPILE_GET_COMPILER_INPUT} from "@nomiclabs/buidler/builtin-tasks/task-names";
 
 task(TASK_COMPILE_GET_COMPILER_INPUT).setAction(async (_, __, runSuper) => {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
