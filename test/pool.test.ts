@@ -1,7 +1,11 @@
 import {
+  Erc20PoolFactory,
   EthPoolFactory,
+  RadFactory,
   ReceiverWeightsTestFactory,
 } from "../contract-bindings/ethers";
+import {Erc20} from "../contract-bindings/ethers/Erc20";
+import {Erc20Pool} from "../contract-bindings/ethers/Erc20Pool";
 import {EthPool} from "../contract-bindings/ethers/EthPool";
 import {ReceiverWeightsTest} from "../contract-bindings/ethers/ReceiverWeightsTest";
 import buidler from "@nomiclabs/buidler";
@@ -19,7 +23,7 @@ import {
 
 const CYCLE_BLOCKS = 10;
 
-type AnyPool = EthPool;
+type AnyPool = EthPool | Erc20Pool;
 
 async function getEthPoolUsers(): Promise<EthPoolUser[]> {
   const signers = await buidler.ethers.getSigners();
@@ -40,6 +44,40 @@ interface EthPoolUser {
   addr: string;
 }
 
+async function getErc20PoolUsers(): Promise<Erc20PoolUser[]> {
+  const signers = await buidler.ethers.getSigners();
+  const signer0 = signers[0];
+  const signer0Addr = await signer0.getAddress();
+  const totalSupply = signers.length;
+  const erc20 = await new RadFactory(signer0).deploy(signer0Addr, totalSupply);
+  await erc20.deployed();
+  const pool = await new Erc20PoolFactory(signer0).deploy(
+    CYCLE_BLOCKS,
+    erc20.address
+  );
+  await pool.deployed();
+  const supplyPerUser = (await erc20.totalSupply()).div(signers.length);
+  const users = [];
+  for (const signer of signers) {
+    const addr = await signer.getAddress();
+    await erc20.transfer(addr, supplyPerUser);
+    const user = <Erc20PoolUser>{
+      pool: pool.connect(signer),
+      erc20: erc20.connect(signer),
+      addr,
+    };
+    await user.erc20.approve(user.pool.address, supplyPerUser);
+    users.push(user);
+  }
+  return users;
+}
+
+interface Erc20PoolUser {
+  pool: Erc20Pool;
+  erc20: Erc20;
+  addr: string;
+}
+
 // The next transaction will be executed on the first block of the next cycle,
 // but the next call will be executed on the last block of the current cycle
 async function mineBlocksUntilCycleEnd(): Promise<void> {
@@ -47,17 +85,36 @@ async function mineBlocksUntilCycleEnd(): Promise<void> {
   await mineBlocks(CYCLE_BLOCKS - ((blockNumber + 1) % CYCLE_BLOCKS));
 }
 
-async function collectEth(pool: EthPool, amount: number): Promise<void> {
-  await expectCollectableOnNextBlock(pool, amount);
+async function collectEth(
+  pool: EthPool,
+  expectedAmount: number
+): Promise<void> {
+  await expectCollectableOnNextBlock(pool, expectedAmount);
   const balanceBefore = await pool.signer.getBalance();
   await submit(pool.collect({gasPrice: 0}), "collect");
   const balanceAfter = await pool.signer.getBalance();
   const collected = balanceAfter.sub(balanceBefore).toNumber();
   expect(collected).to.equal(
-    amount,
+    expectedAmount,
     "The collected amount is different from the expected amount"
   );
   await expectCollectable(pool, 0);
+}
+
+async function collectErc20(
+  user: Erc20PoolUser,
+  expectedAmount: number
+): Promise<void> {
+  await expectCollectableOnNextBlock(user.pool, expectedAmount);
+  const balanceBefore = await user.erc20.balanceOf(user.addr);
+  await submit(user.pool.collect(), "collect");
+  const balanceAfter = await user.erc20.balanceOf(user.addr);
+  const collected = balanceAfter.sub(balanceBefore).toNumber();
+  expect(collected).to.equal(
+    expectedAmount,
+    "The collected amount is different from the expected amount"
+  );
+  await expectCollectable(user.pool, 0);
 }
 
 async function setAmountPerBlock(pool: AnyPool, amount: number): Promise<void> {
@@ -91,8 +148,26 @@ async function topUpEth(
   amountTo: number
 ): Promise<void> {
   await expectWithdrawableOnNextBlock(pool, amountFrom);
-  await submit(pool.topUp({value: amountTo - amountFrom}), "topUp");
+  await submit(pool.topUp({value: amountTo - amountFrom}), "topUpEth");
   await expectWithdrawable(pool, amountTo);
+}
+
+async function topUpErc20(
+  user: Erc20PoolUser,
+  amountFrom: number,
+  amountTo: number
+): Promise<void> {
+  const amount = amountTo - amountFrom;
+  const balanceBefore = await user.erc20.balanceOf(user.pool.address);
+  await expectWithdrawableOnNextBlock(user.pool, amountFrom);
+  await submit(user.pool.topUp(amount), "topUpErc20");
+  const balanceAfter = await user.erc20.balanceOf(user.pool.address);
+  const withdrawn = balanceAfter.sub(balanceBefore).toNumber();
+  expect(withdrawn).to.equal(
+    amount,
+    "The transferred amount is different from the requested amount"
+  );
+  await expectWithdrawable(user.pool, amountTo);
 }
 
 async function withdrawEth(
@@ -103,7 +178,7 @@ async function withdrawEth(
   await expectWithdrawableOnNextBlock(pool, amountFrom);
   const amount = amountFrom - amountTo;
   const balanceBefore = await pool.signer.getBalance();
-  await submit(pool.withdraw(amount, {gasPrice: 0}), "withdraw");
+  await submit(pool.withdraw(amount, {gasPrice: 0}), "withdrawEth");
   const balanceAfter = await pool.signer.getBalance();
   const withdrawn = balanceAfter.sub(balanceBefore).toNumber();
   expect(withdrawn).to.equal(
@@ -111,6 +186,24 @@ async function withdrawEth(
     "The withdrawn amount is different from the requested amount"
   );
   await expectWithdrawable(pool, amountTo);
+}
+
+async function withdrawErc20(
+  user: Erc20PoolUser,
+  amountFrom: number,
+  amountTo: number
+): Promise<void> {
+  await expectWithdrawableOnNextBlock(user.pool, amountFrom);
+  const amount = amountFrom - amountTo;
+  const balanceBefore = await user.erc20.balanceOf(user.addr);
+  await submit(user.pool.withdraw(amount), "withdrawErc20");
+  const balanceAfter = await user.erc20.balanceOf(user.addr);
+  const withdrawn = balanceAfter.sub(balanceBefore).toNumber();
+  expect(withdrawn).to.equal(
+    amount,
+    "The withdrawn amount is different from the requested amount"
+  );
+  await expectWithdrawable(user.pool, amountTo);
 }
 
 async function expectSetReceiverReverts(
@@ -182,7 +275,7 @@ async function expectReceivers(
   expect(receiversActual).to.deep.equal(receivers, "Unexpected receivers list");
 }
 
-describe("Pool", function () {
+describe("EthPool", function () {
   it("Sends funds from a single sender to a single receiver", async function () {
     const [sender, receiver] = await getEthPoolUsers();
     await topUpEth(sender.pool, 0, 100);
@@ -419,8 +512,7 @@ describe("Pool", function () {
   it("Limits the total receivers count", async function () {
     const [sender] = await getEthPoolUsers();
     const weightsCountMax = await sender.pool.SENDER_WEIGHTS_COUNT_MAX();
-    let receiverIdx = 0;
-    for (; receiverIdx < weightsCountMax; receiverIdx++) {
+    for (let i = 0; i < weightsCountMax; i++) {
       // This is much faster than using the `setReceiver()` test utility
       await sender.pool.setReceiver(randomAddress(), 1);
     }
@@ -430,6 +522,23 @@ describe("Pool", function () {
       1,
       "Too many receivers"
     );
+  });
+});
+
+describe("Erc20Pool", function () {
+  it("Allows withdrawal of funds", async function () {
+    const [sender] = await getErc20PoolUsers();
+    await topUpErc20(sender, 0, 10);
+    await withdrawErc20(sender, 10, 0);
+  });
+
+  it("Allows collecting funds", async function () {
+    const [sender, receiver] = await getErc20PoolUsers();
+    await topUpErc20(sender, 0, 10);
+    await setAmountPerBlock(sender.pool, 10);
+    await setReceiver(sender.pool, receiver.addr, 1);
+    await mineBlocksUntilCycleEnd();
+    await collectErc20(receiver, 10);
   });
 });
 
