@@ -738,6 +738,30 @@ describe("ReceiverWeights", function () {
     assert(weights.length == 0);
   });
 
+  it("Allows adding items after removing all items", async function () {
+    // Add an item and then clear the list
+    const weights_test = await deployReceiverWeightsTest();
+    const [addr1] = randomAddresses();
+
+    await weights_test.setWeights([
+      {receiver: addr1, weight: 1},
+      {receiver: addr1, weight: 0},
+    ]);
+
+    assert((await weights_test.receiverWeightsSumDelta()).eq(1 - 1));
+    let weights = await weights_test.getReceiverWeightsIterated();
+    assert(weights.length == 0);
+
+    // Add an item
+    await weights_test.setWeights([{receiver: addr1, weight: 2}]);
+
+    assert((await weights_test.receiverWeightsSumDelta()).eq(2));
+    weights = await weights_test.getReceiverWeightsIterated();
+    assert(weights.length == 1);
+    assert(weights[0].receiver == addr1);
+    assert(weights[0].weight == 2);
+  });
+
   it("Allows updating the first item", async function () {
     const weights_test = await deployReceiverWeightsTest();
     const [addr1, addr2, addr3] = randomAddresses();
