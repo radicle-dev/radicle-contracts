@@ -448,6 +448,22 @@ describe("EthPool", function () {
     await receiver.collect(0);
   });
 
+  it("Allows removing the last receiver weight when amount per block is zero", async function () {
+    const [sender, receiver1, receiver2] = await getEthPoolUsers();
+    await sender.topUp(0, 100);
+    await sender.setReceiver(receiver1, 1);
+    await sender.setReceiver(receiver2, 1);
+    await sender.setReceiver(receiver2, 0);
+    await sender.setAmountPerBlock(12);
+    // Sender had 1 blocks paying 12 per block
+    await sender.withdraw(88, 0);
+    await mineBlocksUntilCycleEnd();
+    // Receiver1 had 1 blocks paying 12 per block
+    await receiver1.collect(12);
+    // Receiver2 had 0 paying blocks
+    await receiver2.expectCollectable(0);
+  });
+
   it("Allows changing receiver weights while sending", async function () {
     const [sender, receiver1, receiver2] = await getEthPoolUsers();
     await sender.topUp(0, 100);
