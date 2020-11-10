@@ -513,6 +513,16 @@ describe("EthPool", function () {
     );
   });
 
+  it("Limits the overflowing total weights sum", async function () {
+    const [sender, receiver1, receiver2] = await getEthPoolUsers();
+    await sender.setReceiver(receiver1, 1);
+    await sender.expectSetReceiverReverts(
+      receiver2,
+      2 ** 32 - 1,
+      "Too much total receivers weight"
+    );
+  });
+
   it("Limits the total receivers count", async function () {
     const [sender, receiver] = await getEthPoolUsers();
     const weightsCountMax = await sender.pool.SENDER_WEIGHTS_COUNT_MAX();
