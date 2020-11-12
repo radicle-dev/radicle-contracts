@@ -4,18 +4,18 @@ import assert from "assert";
 import * as ethers from "ethers";
 import * as abi from "@ethersproject/abi";
 
-import {Registrar} from "../contract-bindings/ethers/Registrar";
-import {Rad} from "../contract-bindings/ethers/Rad";
-import {Ens} from "../contract-bindings/ethers/Ens";
-import {Exchange} from "../contract-bindings/ethers/Exchange";
-import {EthPool} from "../contract-bindings/ethers/EthPool";
+import { Registrar } from "../contract-bindings/ethers/Registrar";
+import { Rad } from "../contract-bindings/ethers/Rad";
+import { Ens } from "../contract-bindings/ethers/Ens";
+import { Exchange } from "../contract-bindings/ethers/Exchange";
+import { EthPool } from "../contract-bindings/ethers/EthPool";
 import {
-  RadFactory,
-  ExchangeFactory,
-  EthPoolFactory,
-  RegistrarFactory,
-  FixedWindowOracleFactory,
-  StablePriceOracleFactory,
+  Rad__factory,
+  Exchange__factory,
+  EthPool__factory,
+  Registrar__factory,
+  FixedWindowOracle__factory,
+  StablePriceOracle__factory,
 } from "../contract-bindings/ethers";
 import * as ensUtils from "./ens";
 
@@ -43,12 +43,12 @@ export async function deployAll(
   const registrar = await deployRegistrar(exchange, ens, signer);
   const ethPool = await deployEthPool(signer, 10);
 
-  return {rad, exchange, registrar, ens, ethPool};
+  return { rad, exchange, registrar, ens, ethPool };
 }
 
 export async function deployRad(signer: ethers.Signer): Promise<Rad> {
   const signerAddr = await signer.getAddress();
-  const radToken = await new RadFactory(signer).deploy(
+  const radToken = await new Rad__factory(signer).deploy(
     signerAddr,
     toDecimals(10000, 18)
   );
@@ -64,7 +64,7 @@ export async function deployRegistrar(
   const signerAddr = await signer.getAddress();
   const oracle = await exchange.oracle();
   const rad = await exchange.rad();
-  const registrar = await new RegistrarFactory(signer).deploy(
+  const registrar = await new Registrar__factory(signer).deploy(
     ens.address,
     ensUtils.nameHash("radicle.eth"),
     oracle,
@@ -101,7 +101,7 @@ export async function deployExchange(
   const wethToken = await deployContract(signer, WETH9, []);
 
   // Deposit ETH into WETH contract
-  await submitOk(wethToken.deposit({value: toDecimals(100, 18)}));
+  await submitOk(wethToken.deposit({ value: toDecimals(100, 18) }));
 
   // Deploy Uniswap factory & router
   const factory = await deployContract(signer, UniswapV2Factory, [signerAddr]);
@@ -155,16 +155,16 @@ export async function deployExchange(
   /////////////////////////////////////////////////////////////////////////////
 
   // Deploy price oracle
-  const fixedWindowOracle = await new FixedWindowOracleFactory(signer).deploy(
+  const fixedWindowOracle = await new FixedWindowOracle__factory(signer).deploy(
     factory.address,
     usdToken.address,
     wethToken.address
   );
-  const oracle = await new StablePriceOracleFactory(signer).deploy(
+  const oracle = await new StablePriceOracle__factory(signer).deploy(
     fixedWindowOracle.address
   );
 
-  const exchange = await new ExchangeFactory(signer).deploy(
+  const exchange = await new Exchange__factory(signer).deploy(
     radToken.address,
     router.address,
     oracle.address
@@ -177,7 +177,7 @@ export async function deployEthPool(
   signer: ethers.Signer,
   cycleBlocks: number
 ): Promise<EthPool> {
-  return await new EthPoolFactory(signer).deploy(cycleBlocks);
+  return await new EthPool__factory(signer).deploy(cycleBlocks);
 }
 
 async function submitOk(

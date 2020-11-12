@@ -1,10 +1,15 @@
-import * as Ethers from "ethers";
-import {expect} from "chai";
-import buidler from "@nomiclabs/buidler";
+import {
+  BigNumberish,
+  ContractReceipt,
+  ContractTransaction,
+  utils,
+} from "ethers";
+import { expect } from "chai";
+import { ethers } from "hardhat";
 
 export async function wait(
-  response: Promise<Ethers.ContractTransaction>
-): Promise<Ethers.ContractReceipt> {
+  response: Promise<ContractTransaction>
+): Promise<ContractReceipt> {
   return (await response).wait();
 }
 
@@ -13,9 +18,9 @@ const PRINT_GAS_USAGE = false;
 
 /// Submit a transaction and wait for it to be mined. Then assert that it succeeded.
 export async function submit(
-  tx: Promise<Ethers.ContractTransaction>,
+  tx: Promise<ContractTransaction>,
   txName = "transaction"
-): Promise<Ethers.ContractReceipt> {
+): Promise<ContractReceipt> {
   const receipt = await (await tx).wait();
   if (PRINT_GAS_USAGE || process.env.PRINT_GAS_USAGE) {
     console.log("Gas used for " + txName + ": " + receipt.gasUsed.toString());
@@ -25,7 +30,7 @@ export async function submit(
 
 /// Submit a transaction and expect it to fail. Throws an error if it succeeds.
 export async function submitFailing(
-  tx: Promise<Ethers.ContractTransaction>,
+  tx: Promise<ContractTransaction>,
   txName = "transaction",
   expectedCause?: string
 ): Promise<void> {
@@ -52,7 +57,7 @@ export async function submitFailing(
 
 /// Let a certain amount of time pass.
 export async function elapseTime(time: number): Promise<void> {
-  await buidler.ethers.provider.send("evm_increaseTime", [time]);
+  await ethers.provider.send("evm_increaseTime", [time]);
   await mineBlocks(1);
 }
 
@@ -67,16 +72,16 @@ export async function elapseTime(time: number): Promise<void> {
 // This function allows a `view` function to see exactly the same state as the next non-`view` one.
 export async function callOnNextBlock<T>(fn: () => Promise<T>): Promise<T> {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-  const snapshot = await buidler.ethers.provider.send("evm_snapshot", []);
+  const snapshot = await ethers.provider.send("evm_snapshot", []);
   await mineBlocks(1);
   const returned = await fn();
-  await buidler.ethers.provider.send("evm_revert", [snapshot]);
+  await ethers.provider.send("evm_revert", [snapshot]);
   return returned;
 }
 
 export async function mineBlocks(count: number): Promise<void> {
   for (let i = 0; i < count; i++) {
-    await buidler.ethers.provider.send("evm_mine", []);
+    await ethers.provider.send("evm_mine", []);
   }
 }
 
@@ -85,11 +90,11 @@ export function randomAddresses(): string[] {
 }
 
 export function randomAddress(): string {
-  return numberToAddress(Ethers.utils.randomBytes(20));
+  return numberToAddress(utils.randomBytes(20));
 }
 
-export function numberToAddress(num: Ethers.BigNumberish): string {
-  const hex = Ethers.utils.hexlify(num);
-  const padded = Ethers.utils.hexZeroPad(hex, 20);
-  return Ethers.utils.getAddress(padded);
+export function numberToAddress(num: BigNumberish): string {
+  const hex = utils.hexlify(num);
+  const padded = utils.hexZeroPad(hex, 20);
+  return utils.getAddress(padded);
 }

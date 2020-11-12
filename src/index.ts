@@ -1,1 +1,1 @@
-export {deployAll, DeployedContracts} from "./deploy";
+export { deployAll, DeployedContracts } from "./deploy";

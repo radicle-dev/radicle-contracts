@@ -1,13 +1,15 @@
-import {ReceiverWeightsTestFactory} from "../contract-bindings/ethers";
-import {ReceiverWeightsTest} from "../contract-bindings/ethers/ReceiverWeightsTest";
-import buidler from "@nomiclabs/buidler";
-import {BigNumberish} from "ethers";
-import {assert} from "chai";
-import {numberToAddress, randomAddresses, submitFailing} from "./support";
+import {
+  ReceiverWeightsTest,
+  ReceiverWeightsTest__factory,
+} from "../contract-bindings/ethers";
+import { ethers } from "hardhat";
+import { BigNumberish } from "ethers";
+import { assert } from "chai";
+import { numberToAddress, randomAddresses, submitFailing } from "./support";
 
 async function deployReceiverWeightsTest(): Promise<ReceiverWeightsTest> {
-  const [signer] = await buidler.ethers.getSigners();
-  const weightsTest = await new ReceiverWeightsTestFactory(signer).deploy();
+  const [signer] = await ethers.getSigners();
+  const weightsTest = await new ReceiverWeightsTest__factory(signer).deploy();
   return await weightsTest.deployed();
 }
 
@@ -43,7 +45,7 @@ describe("ReceiverWeights", function () {
     const [addr1] = randomAddresses();
 
     await weightsTest.setWeights([
-      {receiver: addr1, weightReceiver: 1, weightProxy: 0},
+      { receiver: addr1, weightReceiver: 1, weightProxy: 0 },
     ]);
 
     assert((await weightsTest.weightReceiverSumDelta()).eq(1));
@@ -60,9 +62,9 @@ describe("ReceiverWeights", function () {
     const [addr1, addr2, addr3] = randomAddresses();
 
     await weightsTest.setWeights([
-      {receiver: addr1, weightReceiver: 1, weightProxy: 0},
-      {receiver: addr2, weightReceiver: 2, weightProxy: 0},
-      {receiver: addr3, weightReceiver: 4, weightProxy: 0},
+      { receiver: addr1, weightReceiver: 1, weightProxy: 0 },
+      { receiver: addr2, weightReceiver: 2, weightProxy: 0 },
+      { receiver: addr3, weightReceiver: 4, weightProxy: 0 },
     ]);
 
     assert((await weightsTest.weightReceiverSumDelta()).eq(1 + 2 + 4));
@@ -85,10 +87,10 @@ describe("ReceiverWeights", function () {
     const [addr1, addr2, addr3] = randomAddresses();
 
     await weightsTest.setWeights([
-      {receiver: addr1, weightReceiver: 1, weightProxy: 0},
-      {receiver: addr2, weightReceiver: 2, weightProxy: 0},
-      {receiver: addr3, weightReceiver: 4, weightProxy: 0},
-      {receiver: addr1, weightReceiver: 0, weightProxy: 0},
+      { receiver: addr1, weightReceiver: 1, weightProxy: 0 },
+      { receiver: addr2, weightReceiver: 2, weightProxy: 0 },
+      { receiver: addr3, weightReceiver: 4, weightProxy: 0 },
+      { receiver: addr1, weightReceiver: 0, weightProxy: 0 },
     ]);
 
     assert((await weightsTest.weightReceiverSumDelta()).eq(1 + 2 + 4 - 1));
@@ -108,11 +110,11 @@ describe("ReceiverWeights", function () {
     const [addr1, addr2, addr3] = randomAddresses();
 
     await weightsTest.setWeights([
-      {receiver: addr1, weightReceiver: 1, weightProxy: 0},
-      {receiver: addr2, weightReceiver: 2, weightProxy: 0},
-      {receiver: addr3, weightReceiver: 4, weightProxy: 0},
-      {receiver: addr1, weightReceiver: 0, weightProxy: 0},
-      {receiver: addr2, weightReceiver: 0, weightProxy: 0},
+      { receiver: addr1, weightReceiver: 1, weightProxy: 0 },
+      { receiver: addr2, weightReceiver: 2, weightProxy: 0 },
+      { receiver: addr3, weightReceiver: 4, weightProxy: 0 },
+      { receiver: addr1, weightReceiver: 0, weightProxy: 0 },
+      { receiver: addr2, weightReceiver: 0, weightProxy: 0 },
     ]);
 
     assert((await weightsTest.weightReceiverSumDelta()).eq(1 + 2 + 4 - 1 - 2));
@@ -129,10 +131,10 @@ describe("ReceiverWeights", function () {
     const [addr1, addr2, addr3] = randomAddresses();
 
     await weightsTest.setWeights([
-      {receiver: addr1, weightReceiver: 1, weightProxy: 0},
-      {receiver: addr2, weightReceiver: 2, weightProxy: 0},
-      {receiver: addr3, weightReceiver: 4, weightProxy: 0},
-      {receiver: addr3, weightReceiver: 0, weightProxy: 0},
+      { receiver: addr1, weightReceiver: 1, weightProxy: 0 },
+      { receiver: addr2, weightReceiver: 2, weightProxy: 0 },
+      { receiver: addr3, weightReceiver: 4, weightProxy: 0 },
+      { receiver: addr3, weightReceiver: 0, weightProxy: 0 },
     ]);
 
     assert((await weightsTest.weightReceiverSumDelta()).eq(1 + 2 + 4 - 4));
@@ -152,11 +154,11 @@ describe("ReceiverWeights", function () {
     const [addr1, addr2, addr3] = randomAddresses();
 
     await weightsTest.setWeights([
-      {receiver: addr1, weightReceiver: 1, weightProxy: 0},
-      {receiver: addr2, weightReceiver: 2, weightProxy: 0},
-      {receiver: addr3, weightReceiver: 4, weightProxy: 0},
-      {receiver: addr2, weightReceiver: 0, weightProxy: 0},
-      {receiver: addr3, weightReceiver: 0, weightProxy: 0},
+      { receiver: addr1, weightReceiver: 1, weightProxy: 0 },
+      { receiver: addr2, weightReceiver: 2, weightProxy: 0 },
+      { receiver: addr3, weightReceiver: 4, weightProxy: 0 },
+      { receiver: addr2, weightReceiver: 0, weightProxy: 0 },
+      { receiver: addr3, weightReceiver: 0, weightProxy: 0 },
     ]);
 
     assert((await weightsTest.weightReceiverSumDelta()).eq(1 + 2 + 4 - 2 - 4));
@@ -173,10 +175,10 @@ describe("ReceiverWeights", function () {
     const [addr1, addr2, addr3] = randomAddresses();
 
     await weightsTest.setWeights([
-      {receiver: addr1, weightReceiver: 1, weightProxy: 0},
-      {receiver: addr2, weightReceiver: 2, weightProxy: 0},
-      {receiver: addr3, weightReceiver: 4, weightProxy: 0},
-      {receiver: addr2, weightReceiver: 0, weightProxy: 0},
+      { receiver: addr1, weightReceiver: 1, weightProxy: 0 },
+      { receiver: addr2, weightReceiver: 2, weightProxy: 0 },
+      { receiver: addr3, weightReceiver: 4, weightProxy: 0 },
+      { receiver: addr2, weightReceiver: 0, weightProxy: 0 },
     ]);
 
     assert((await weightsTest.weightReceiverSumDelta()).eq(1 + 2 + 4 - 2));
@@ -196,12 +198,12 @@ describe("ReceiverWeights", function () {
     const [addr1, addr2, addr3, addr4] = randomAddresses();
 
     await weightsTest.setWeights([
-      {receiver: addr1, weightReceiver: 1, weightProxy: 0},
-      {receiver: addr2, weightReceiver: 2, weightProxy: 0},
-      {receiver: addr3, weightReceiver: 4, weightProxy: 0},
-      {receiver: addr4, weightReceiver: 8, weightProxy: 0},
-      {receiver: addr2, weightReceiver: 0, weightProxy: 0},
-      {receiver: addr3, weightReceiver: 0, weightProxy: 0},
+      { receiver: addr1, weightReceiver: 1, weightProxy: 0 },
+      { receiver: addr2, weightReceiver: 2, weightProxy: 0 },
+      { receiver: addr3, weightReceiver: 4, weightProxy: 0 },
+      { receiver: addr4, weightReceiver: 8, weightProxy: 0 },
+      { receiver: addr2, weightReceiver: 0, weightProxy: 0 },
+      { receiver: addr3, weightReceiver: 0, weightProxy: 0 },
     ]);
 
     assert(
@@ -223,12 +225,12 @@ describe("ReceiverWeights", function () {
     const [addr1, addr2, addr3] = randomAddresses();
 
     await weightsTest.setWeights([
-      {receiver: addr1, weightReceiver: 1, weightProxy: 0},
-      {receiver: addr2, weightReceiver: 2, weightProxy: 0},
-      {receiver: addr3, weightReceiver: 4, weightProxy: 0},
-      {receiver: addr1, weightReceiver: 0, weightProxy: 0},
-      {receiver: addr2, weightReceiver: 0, weightProxy: 0},
-      {receiver: addr3, weightReceiver: 0, weightProxy: 0},
+      { receiver: addr1, weightReceiver: 1, weightProxy: 0 },
+      { receiver: addr2, weightReceiver: 2, weightProxy: 0 },
+      { receiver: addr3, weightReceiver: 4, weightProxy: 0 },
+      { receiver: addr1, weightReceiver: 0, weightProxy: 0 },
+      { receiver: addr2, weightReceiver: 0, weightProxy: 0 },
+      { receiver: addr3, weightReceiver: 0, weightProxy: 0 },
     ]);
 
     assert(
@@ -245,8 +247,8 @@ describe("ReceiverWeights", function () {
     const [addr1] = randomAddresses();
 
     await weightsTest.setWeights([
-      {receiver: addr1, weightReceiver: 1, weightProxy: 0},
-      {receiver: addr1, weightReceiver: 0, weightProxy: 0},
+      { receiver: addr1, weightReceiver: 1, weightProxy: 0 },
+      { receiver: addr1, weightReceiver: 0, weightProxy: 0 },
     ]);
 
     assert((await weightsTest.weightReceiverSumDelta()).eq(1 - 1));
@@ -256,7 +258,7 @@ describe("ReceiverWeights", function () {
 
     // Add an item
     await weightsTest.setWeights([
-      {receiver: addr1, weightReceiver: 2, weightProxy: 0},
+      { receiver: addr1, weightReceiver: 2, weightProxy: 0 },
     ]);
 
     assert((await weightsTest.weightReceiverSumDelta()).eq(2));
@@ -273,10 +275,10 @@ describe("ReceiverWeights", function () {
     const [addr1, addr2, addr3] = randomAddresses();
 
     await weightsTest.setWeights([
-      {receiver: addr1, weightReceiver: 1, weightProxy: 0},
-      {receiver: addr2, weightReceiver: 2, weightProxy: 0},
-      {receiver: addr3, weightReceiver: 4, weightProxy: 0},
-      {receiver: addr3, weightReceiver: 8, weightProxy: 0},
+      { receiver: addr1, weightReceiver: 1, weightProxy: 0 },
+      { receiver: addr2, weightReceiver: 2, weightProxy: 0 },
+      { receiver: addr3, weightReceiver: 4, weightProxy: 0 },
+      { receiver: addr3, weightReceiver: 8, weightProxy: 0 },
     ]);
 
     assert((await weightsTest.weightReceiverSumDelta()).eq(1 + 2 + 4 - 4 + 8));
@@ -299,10 +301,10 @@ describe("ReceiverWeights", function () {
     const [addr1, addr2, addr3] = randomAddresses();
 
     await weightsTest.setWeights([
-      {receiver: addr1, weightReceiver: 1, weightProxy: 0},
-      {receiver: addr2, weightReceiver: 2, weightProxy: 0},
-      {receiver: addr3, weightReceiver: 4, weightProxy: 0},
-      {receiver: addr2, weightReceiver: 8, weightProxy: 0},
+      { receiver: addr1, weightReceiver: 1, weightProxy: 0 },
+      { receiver: addr2, weightReceiver: 2, weightProxy: 0 },
+      { receiver: addr3, weightReceiver: 4, weightProxy: 0 },
+      { receiver: addr2, weightReceiver: 8, weightProxy: 0 },
     ]);
 
     assert((await weightsTest.weightReceiverSumDelta()).eq(1 + 2 + 4 - 2 + 8));
@@ -325,10 +327,10 @@ describe("ReceiverWeights", function () {
     const [addr1, addr2, addr3] = randomAddresses();
 
     await weightsTest.setWeights([
-      {receiver: addr1, weightReceiver: 1, weightProxy: 0},
-      {receiver: addr2, weightReceiver: 2, weightProxy: 0},
-      {receiver: addr3, weightReceiver: 4, weightProxy: 0},
-      {receiver: addr1, weightReceiver: 8, weightProxy: 0},
+      { receiver: addr1, weightReceiver: 1, weightProxy: 0 },
+      { receiver: addr2, weightReceiver: 2, weightProxy: 0 },
+      { receiver: addr3, weightReceiver: 4, weightProxy: 0 },
+      { receiver: addr1, weightReceiver: 8, weightProxy: 0 },
     ]);
 
     assert((await weightsTest.weightReceiverSumDelta()).eq(1 + 2 + 4 - 1 + 8));
@@ -349,14 +351,14 @@ describe("ReceiverWeights", function () {
   it("Rejects setting weight for address 0", async function () {
     const weightsTest = await deployReceiverWeightsTest();
     await expectSetWeightsWithInvalidAddressReverts(weightsTest, [
-      {receiver: numberToAddress(0), weightReceiver: 1, weightProxy: 0},
+      { receiver: numberToAddress(0), weightReceiver: 1, weightProxy: 0 },
     ]);
   });
 
   it("Rejects setting weight for address 1", async function () {
     const weightsTest = await deployReceiverWeightsTest();
     await expectSetWeightsWithInvalidAddressReverts(weightsTest, [
-      {receiver: numberToAddress(1), weightReceiver: 1, weightProxy: 0},
+      { receiver: numberToAddress(1), weightReceiver: 1, weightProxy: 0 },
     ]);
   });
 
@@ -365,7 +367,7 @@ describe("ReceiverWeights", function () {
     const [addr1] = randomAddresses();
 
     await weightsTest.setWeights([
-      {receiver: addr1, weightReceiver: 0, weightProxy: 1},
+      { receiver: addr1, weightReceiver: 0, weightProxy: 1 },
     ]);
 
     assert((await weightsTest.weightReceiverSumDelta()).eq(0));
@@ -382,9 +384,9 @@ describe("ReceiverWeights", function () {
     const [addr1, addr2] = randomAddresses();
 
     await weightsTest.setWeights([
-      {receiver: addr1, weightReceiver: 0, weightProxy: 1},
-      {receiver: addr2, weightReceiver: 0, weightProxy: 2},
-      {receiver: addr1, weightReceiver: 0, weightProxy: 0},
+      { receiver: addr1, weightReceiver: 0, weightProxy: 1 },
+      { receiver: addr2, weightReceiver: 0, weightProxy: 2 },
+      { receiver: addr1, weightReceiver: 0, weightProxy: 0 },
     ]);
 
     assert((await weightsTest.weightReceiverSumDelta()).eq(0));

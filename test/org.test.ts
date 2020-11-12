@@ -1,14 +1,14 @@
-import {ethers} from "@nomiclabs/buidler";
-import {assert} from "chai";
-import {submit, submitFailing} from "./support";
-import {OrgFactory} from "../contract-bindings/ethers";
+import { ethers } from "hardhat";
+import { assert } from "chai";
+import { submit, submitFailing } from "./support";
+import { Org__factory } from "../contract-bindings/ethers";
 
 describe("Org", function () {
   it("should allow a project to be anchored", async function () {
     const [owner] = await ethers.getSigners();
     const ownerAddr = await owner.getAddress();
 
-    const org = await new OrgFactory(owner).deploy(ownerAddr);
+    const org = await new Org__factory(owner).deploy(ownerAddr);
 
     await org.deployed();
 
@@ -48,7 +48,7 @@ describe("Org", function () {
     const [owner] = await ethers.getSigners();
     const ownerAddr = await owner.getAddress();
 
-    const org = await new OrgFactory(owner).deploy(ownerAddr);
+    const org = await new Org__factory(owner).deploy(ownerAddr);
 
     const id = ethers.utils.randomBytes(32);
     await submit(org.connect(owner).removeProject(id));
@@ -58,7 +58,7 @@ describe("Org", function () {
     const [owner, bob] = await ethers.getSigners();
     const ownerAddr = await owner.getAddress();
 
-    const org = await new OrgFactory(owner).deploy(ownerAddr);
+    const org = await new Org__factory(owner).deploy(ownerAddr);
 
     await org.deployed();
 
@@ -81,7 +81,7 @@ describe("Org", function () {
     const ownerAddr = await owner.getAddress();
     const bobAddr = await bob.getAddress();
 
-    const org = await new OrgFactory(owner).deploy(ownerAddr);
+    const org = await new Org__factory(owner).deploy(ownerAddr);
 
     // Should revert!
     await submitFailing(org.connect(bob).setOwner(bobAddr));
@@ -100,7 +100,7 @@ describe("Org", function () {
     const [owner] = await ethers.getSigners();
     const ownerAddr = await owner.getAddress();
 
-    const org = await new OrgFactory(owner).deploy(ownerAddr);
+    const org = await new Org__factory(owner).deploy(ownerAddr);
     const ids = [];
 
     for (let i = 0; i < 3; i++) {

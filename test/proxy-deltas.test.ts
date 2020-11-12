@@ -1,13 +1,13 @@
-import {ProxyDeltasTestFactory} from "../contract-bindings/ethers";
-import {ProxyDeltasTest} from "../contract-bindings/ethers/ProxyDeltasTest";
-import buidler from "@nomiclabs/buidler";
-import {BigNumber, BigNumberish} from "ethers";
-import {assert} from "chai";
-import {submitFailing} from "./support";
+import { ProxyDeltasTest__factory } from "../contract-bindings/ethers";
+import { ProxyDeltasTest } from "../contract-bindings/ethers/ProxyDeltasTest";
+import { ethers } from "hardhat";
+import { BigNumber, BigNumberish } from "ethers";
+import { assert } from "chai";
+import { submitFailing } from "./support";
 
 async function deployProxyDeltasTest(): Promise<ProxyDeltasTest> {
-  const [signer] = await buidler.ethers.getSigners();
-  const deltasTest = await new ProxyDeltasTestFactory(signer).deploy();
+  const [signer] = await ethers.getSigners();
+  const deltasTest = await new ProxyDeltasTest__factory(signer).deploy();
   return await deltasTest.deployed();
 }
 
@@ -41,7 +41,7 @@ describe("ProxyDeltas", function () {
     const deltasTest = await deployProxyDeltasTest();
 
     await deltasTest.addToDeltas(0, [
-      {cycle: 1, thisCycleDelta: 1, nextCycleDelta: 0},
+      { cycle: 1, thisCycleDelta: 1, nextCycleDelta: 0 },
     ]);
 
     const deltas = await deltasTest.getProxyDeltasIterated();
@@ -55,9 +55,9 @@ describe("ProxyDeltas", function () {
     const deltasTest = await deployProxyDeltasTest();
 
     await deltasTest.addToDeltas(0, [
-      {cycle: 1, thisCycleDelta: 1, nextCycleDelta: 0},
-      {cycle: 2, thisCycleDelta: 2, nextCycleDelta: 0},
-      {cycle: 3, thisCycleDelta: 4, nextCycleDelta: 0},
+      { cycle: 1, thisCycleDelta: 1, nextCycleDelta: 0 },
+      { cycle: 2, thisCycleDelta: 2, nextCycleDelta: 0 },
+      { cycle: 3, thisCycleDelta: 4, nextCycleDelta: 0 },
     ]);
 
     const deltas = await deltasTest.getProxyDeltasIterated();
@@ -77,10 +77,10 @@ describe("ProxyDeltas", function () {
     const deltasTest = await deployProxyDeltasTest();
 
     await deltasTest.addToDeltas(0, [
-      {cycle: 1, thisCycleDelta: 1, nextCycleDelta: 0},
-      {cycle: 2, thisCycleDelta: 2, nextCycleDelta: 0},
-      {cycle: 3, thisCycleDelta: 4, nextCycleDelta: 0},
-      {cycle: 1, thisCycleDelta: -1, nextCycleDelta: 0},
+      { cycle: 1, thisCycleDelta: 1, nextCycleDelta: 0 },
+      { cycle: 2, thisCycleDelta: 2, nextCycleDelta: 0 },
+      { cycle: 3, thisCycleDelta: 4, nextCycleDelta: 0 },
+      { cycle: 1, thisCycleDelta: -1, nextCycleDelta: 0 },
     ]);
 
     const deltas = await deltasTest.getProxyDeltasIterated();
@@ -97,11 +97,11 @@ describe("ProxyDeltas", function () {
     const deltasTest = await deployProxyDeltasTest();
 
     await deltasTest.addToDeltas(0, [
-      {cycle: 1, thisCycleDelta: 1, nextCycleDelta: 0},
-      {cycle: 2, thisCycleDelta: 2, nextCycleDelta: 0},
-      {cycle: 3, thisCycleDelta: 4, nextCycleDelta: 0},
-      {cycle: 1, thisCycleDelta: -1, nextCycleDelta: 0},
-      {cycle: 2, thisCycleDelta: -2, nextCycleDelta: 0},
+      { cycle: 1, thisCycleDelta: 1, nextCycleDelta: 0 },
+      { cycle: 2, thisCycleDelta: 2, nextCycleDelta: 0 },
+      { cycle: 3, thisCycleDelta: 4, nextCycleDelta: 0 },
+      { cycle: 1, thisCycleDelta: -1, nextCycleDelta: 0 },
+      { cycle: 2, thisCycleDelta: -2, nextCycleDelta: 0 },
     ]);
 
     const deltas = await deltasTest.getProxyDeltasIterated();
@@ -115,10 +115,10 @@ describe("ProxyDeltas", function () {
     const deltasTest = await deployProxyDeltasTest();
 
     await deltasTest.addToDeltas(0, [
-      {cycle: 1, thisCycleDelta: 1, nextCycleDelta: 0},
-      {cycle: 2, thisCycleDelta: 2, nextCycleDelta: 0},
-      {cycle: 3, thisCycleDelta: 4, nextCycleDelta: 0},
-      {cycle: 3, thisCycleDelta: -4, nextCycleDelta: 0},
+      { cycle: 1, thisCycleDelta: 1, nextCycleDelta: 0 },
+      { cycle: 2, thisCycleDelta: 2, nextCycleDelta: 0 },
+      { cycle: 3, thisCycleDelta: 4, nextCycleDelta: 0 },
+      { cycle: 3, thisCycleDelta: -4, nextCycleDelta: 0 },
     ]);
 
     const deltas = await deltasTest.getProxyDeltasIterated();
@@ -135,11 +135,11 @@ describe("ProxyDeltas", function () {
     const deltasTest = await deployProxyDeltasTest();
 
     await deltasTest.addToDeltas(0, [
-      {cycle: 1, thisCycleDelta: 1, nextCycleDelta: 0},
-      {cycle: 2, thisCycleDelta: 2, nextCycleDelta: 0},
-      {cycle: 3, thisCycleDelta: 4, nextCycleDelta: 0},
-      {cycle: 2, thisCycleDelta: -2, nextCycleDelta: 0},
-      {cycle: 3, thisCycleDelta: -4, nextCycleDelta: 0},
+      { cycle: 1, thisCycleDelta: 1, nextCycleDelta: 0 },
+      { cycle: 2, thisCycleDelta: 2, nextCycleDelta: 0 },
+      { cycle: 3, thisCycleDelta: 4, nextCycleDelta: 0 },
+      { cycle: 2, thisCycleDelta: -2, nextCycleDelta: 0 },
+      { cycle: 3, thisCycleDelta: -4, nextCycleDelta: 0 },
     ]);
 
     const deltas = await deltasTest.getProxyDeltasIterated();
@@ -153,10 +153,10 @@ describe("ProxyDeltas", function () {
     const deltasTest = await deployProxyDeltasTest();
 
     await deltasTest.addToDeltas(0, [
-      {cycle: 1, thisCycleDelta: 1, nextCycleDelta: 0},
-      {cycle: 2, thisCycleDelta: 2, nextCycleDelta: 0},
-      {cycle: 3, thisCycleDelta: 4, nextCycleDelta: 0},
-      {cycle: 2, thisCycleDelta: -2, nextCycleDelta: 0},
+      { cycle: 1, thisCycleDelta: 1, nextCycleDelta: 0 },
+      { cycle: 2, thisCycleDelta: 2, nextCycleDelta: 0 },
+      { cycle: 3, thisCycleDelta: 4, nextCycleDelta: 0 },
+      { cycle: 2, thisCycleDelta: -2, nextCycleDelta: 0 },
     ]);
 
     const deltas = await deltasTest.getProxyDeltasIterated();
@@ -173,12 +173,12 @@ describe("ProxyDeltas", function () {
     const deltasTest = await deployProxyDeltasTest();
 
     await deltasTest.addToDeltas(0, [
-      {cycle: 1, thisCycleDelta: 1, nextCycleDelta: 0},
-      {cycle: 2, thisCycleDelta: 2, nextCycleDelta: 0},
-      {cycle: 3, thisCycleDelta: 4, nextCycleDelta: 0},
-      {cycle: 4, thisCycleDelta: 8, nextCycleDelta: 0},
-      {cycle: 2, thisCycleDelta: -2, nextCycleDelta: 0},
-      {cycle: 3, thisCycleDelta: -4, nextCycleDelta: 0},
+      { cycle: 1, thisCycleDelta: 1, nextCycleDelta: 0 },
+      { cycle: 2, thisCycleDelta: 2, nextCycleDelta: 0 },
+      { cycle: 3, thisCycleDelta: 4, nextCycleDelta: 0 },
+      { cycle: 4, thisCycleDelta: 8, nextCycleDelta: 0 },
+      { cycle: 2, thisCycleDelta: -2, nextCycleDelta: 0 },
+      { cycle: 3, thisCycleDelta: -4, nextCycleDelta: 0 },
     ]);
 
     const deltas = await deltasTest.getProxyDeltasIterated();
@@ -195,12 +195,12 @@ describe("ProxyDeltas", function () {
     const deltasTest = await deployProxyDeltasTest();
 
     await deltasTest.addToDeltas(0, [
-      {cycle: 1, thisCycleDelta: 1, nextCycleDelta: 0},
-      {cycle: 2, thisCycleDelta: 2, nextCycleDelta: 0},
-      {cycle: 3, thisCycleDelta: 4, nextCycleDelta: 0},
-      {cycle: 1, thisCycleDelta: -1, nextCycleDelta: 0},
-      {cycle: 2, thisCycleDelta: -2, nextCycleDelta: 0},
-      {cycle: 3, thisCycleDelta: -4, nextCycleDelta: 0},
+      { cycle: 1, thisCycleDelta: 1, nextCycleDelta: 0 },
+      { cycle: 2, thisCycleDelta: 2, nextCycleDelta: 0 },
+      { cycle: 3, thisCycleDelta: 4, nextCycleDelta: 0 },
+      { cycle: 1, thisCycleDelta: -1, nextCycleDelta: 0 },
+      { cycle: 2, thisCycleDelta: -2, nextCycleDelta: 0 },
+      { cycle: 3, thisCycleDelta: -4, nextCycleDelta: 0 },
     ]);
 
     const deltas = await deltasTest.getProxyDeltasIterated();
@@ -212,8 +212,8 @@ describe("ProxyDeltas", function () {
     const deltasTest = await deployProxyDeltasTest();
 
     await deltasTest.addToDeltas(0, [
-      {cycle: 1, thisCycleDelta: 1, nextCycleDelta: 0},
-      {cycle: 1, thisCycleDelta: -1, nextCycleDelta: 0},
+      { cycle: 1, thisCycleDelta: 1, nextCycleDelta: 0 },
+      { cycle: 1, thisCycleDelta: -1, nextCycleDelta: 0 },
     ]);
 
     let deltas = await deltasTest.getProxyDeltasIterated();
@@ -221,7 +221,7 @@ describe("ProxyDeltas", function () {
 
     // Add an item
     await deltasTest.addToDeltas(0, [
-      {cycle: 1, thisCycleDelta: 2, nextCycleDelta: 0},
+      { cycle: 1, thisCycleDelta: 2, nextCycleDelta: 0 },
     ]);
 
     deltas = await deltasTest.getProxyDeltasIterated();
@@ -235,10 +235,10 @@ describe("ProxyDeltas", function () {
     const deltasTest = await deployProxyDeltasTest();
 
     await deltasTest.addToDeltas(0, [
-      {cycle: 1, thisCycleDelta: 1, nextCycleDelta: 0},
-      {cycle: 2, thisCycleDelta: 2, nextCycleDelta: 0},
-      {cycle: 3, thisCycleDelta: 4, nextCycleDelta: 0},
-      {cycle: 3, thisCycleDelta: 8, nextCycleDelta: 0},
+      { cycle: 1, thisCycleDelta: 1, nextCycleDelta: 0 },
+      { cycle: 2, thisCycleDelta: 2, nextCycleDelta: 0 },
+      { cycle: 3, thisCycleDelta: 4, nextCycleDelta: 0 },
+      { cycle: 3, thisCycleDelta: 8, nextCycleDelta: 0 },
     ]);
 
     const deltas = await deltasTest.getProxyDeltasIterated();
@@ -258,10 +258,10 @@ describe("ProxyDeltas", function () {
     const deltasTest = await deployProxyDeltasTest();
 
     await deltasTest.addToDeltas(0, [
-      {cycle: 1, thisCycleDelta: 1, nextCycleDelta: 0},
-      {cycle: 2, thisCycleDelta: 2, nextCycleDelta: 0},
-      {cycle: 3, thisCycleDelta: 4, nextCycleDelta: 0},
-      {cycle: 2, thisCycleDelta: 8, nextCycleDelta: 0},
+      { cycle: 1, thisCycleDelta: 1, nextCycleDelta: 0 },
+      { cycle: 2, thisCycleDelta: 2, nextCycleDelta: 0 },
+      { cycle: 3, thisCycleDelta: 4, nextCycleDelta: 0 },
+      { cycle: 2, thisCycleDelta: 8, nextCycleDelta: 0 },
     ]);
 
     const deltas = await deltasTest.getProxyDeltasIterated();
@@ -281,10 +281,10 @@ describe("ProxyDeltas", function () {
     const deltasTest = await deployProxyDeltasTest();
 
     await deltasTest.addToDeltas(0, [
-      {cycle: 1, thisCycleDelta: 1, nextCycleDelta: 0},
-      {cycle: 2, thisCycleDelta: 2, nextCycleDelta: 0},
-      {cycle: 3, thisCycleDelta: 4, nextCycleDelta: 0},
-      {cycle: 1, thisCycleDelta: 8, nextCycleDelta: 0},
+      { cycle: 1, thisCycleDelta: 1, nextCycleDelta: 0 },
+      { cycle: 2, thisCycleDelta: 2, nextCycleDelta: 0 },
+      { cycle: 3, thisCycleDelta: 4, nextCycleDelta: 0 },
+      { cycle: 1, thisCycleDelta: 8, nextCycleDelta: 0 },
     ]);
 
     const deltas = await deltasTest.getProxyDeltasIterated();
@@ -303,7 +303,7 @@ describe("ProxyDeltas", function () {
   it("Rejects adding delta for cycle 0", async function () {
     const deltasTest = await deployProxyDeltasTest();
     await expectAddToDeltasWithInvalidCycleReverts(deltasTest, 0, [
-      {cycle: 0, thisCycleDelta: 1, nextCycleDelta: 0},
+      { cycle: 0, thisCycleDelta: 1, nextCycleDelta: 0 },
     ]);
   });
 
@@ -311,7 +311,7 @@ describe("ProxyDeltas", function () {
     const deltasTest = await deployProxyDeltasTest();
     const uint64Max = BigNumber.from(2).pow(64).sub(1);
     await expectAddToDeltasWithInvalidCycleReverts(deltasTest, 0, [
-      {cycle: uint64Max, thisCycleDelta: 1, nextCycleDelta: 0},
+      { cycle: uint64Max, thisCycleDelta: 1, nextCycleDelta: 0 },
     ]);
   });
 
@@ -319,7 +319,7 @@ describe("ProxyDeltas", function () {
     const deltasTest = await deployProxyDeltasTest();
 
     await deltasTest.addToDeltas(0, [
-      {cycle: 1, thisCycleDelta: 0, nextCycleDelta: 1},
+      { cycle: 1, thisCycleDelta: 0, nextCycleDelta: 1 },
     ]);
 
     const deltas = await deltasTest.getProxyDeltasIterated();
@@ -333,9 +333,9 @@ describe("ProxyDeltas", function () {
     const deltasTest = await deployProxyDeltasTest();
 
     await deltasTest.addToDeltas(0, [
-      {cycle: 1, thisCycleDelta: 0, nextCycleDelta: 1},
-      {cycle: 2, thisCycleDelta: 0, nextCycleDelta: 2},
-      {cycle: 1, thisCycleDelta: 0, nextCycleDelta: -1},
+      { cycle: 1, thisCycleDelta: 0, nextCycleDelta: 1 },
+      { cycle: 2, thisCycleDelta: 0, nextCycleDelta: 2 },
+      { cycle: 1, thisCycleDelta: 0, nextCycleDelta: -1 },
     ]);
 
     const deltas = await deltasTest.getProxyDeltasIterated();
@@ -349,11 +349,11 @@ describe("ProxyDeltas", function () {
     const deltasTest = await deployProxyDeltasTest();
 
     await deltasTest.addToDeltas(3, [
-      {cycle: 1, thisCycleDelta: 1, nextCycleDelta: 0},
-      {cycle: 2, thisCycleDelta: 2, nextCycleDelta: 0},
-      {cycle: 3, thisCycleDelta: 4, nextCycleDelta: 0},
-      {cycle: 4, thisCycleDelta: 8, nextCycleDelta: 0},
-      {cycle: 5, thisCycleDelta: 16, nextCycleDelta: 0},
+      { cycle: 1, thisCycleDelta: 1, nextCycleDelta: 0 },
+      { cycle: 2, thisCycleDelta: 2, nextCycleDelta: 0 },
+      { cycle: 3, thisCycleDelta: 4, nextCycleDelta: 0 },
+      { cycle: 4, thisCycleDelta: 8, nextCycleDelta: 0 },
+      { cycle: 5, thisCycleDelta: 16, nextCycleDelta: 0 },
     ]);
 
     const deltas = await deltasTest.getProxyDeltasIterated();
