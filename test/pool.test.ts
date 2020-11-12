@@ -522,6 +522,31 @@ describe("EthPool", function () {
     }
     await sender.expectSetReceiverReverts(receiver, 1, "Too many receivers");
   });
+
+  it("Allows withdrawal of all funds", async function () {
+    const [sender, receiver] = await getEthPoolUsers();
+    const withdrawAll = await sender.pool.WITHDRAW_ALL();
+    await sender.topUp(0, 10);
+    await sender.setAmountPerBlock(1);
+    await sender.setReceiver(receiver, 1);
+    await mineBlocks(4);
+    const balanceBefore = await sender.pool.signer.getBalance();
+    await submit(
+      sender.pool.withdraw(withdrawAll, {gasPrice: 0}),
+      "withdraw ETH"
+    );
+    const balanceAfter = await sender.pool.signer.getBalance();
+    const withdrawn = balanceAfter.sub(balanceBefore).toNumber();
+    // Sender had 5 blocks paying 1 per block
+    expect(withdrawn).to.equal(
+      5,
+      "The withdrawn amount is different from the requested amount"
+    );
+    await sender.expectWithdrawable(0);
+    await mineBlocksUntilCycleEnd();
+    // Receiver had 5 blocks paying 1 per block
+    await receiver.collect(5);
+  });
 });
 
 describe("Erc20Pool", function () {
