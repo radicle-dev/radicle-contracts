@@ -1,14 +1,14 @@
 import {
-  Erc20PoolFactory,
-  EthPoolFactory,
-  RadFactory,
+  Erc20Pool__factory,
+  EthPool__factory,
+  Rad__factory,
 } from "../contract-bindings/ethers";
-import {Erc20} from "../contract-bindings/ethers/Erc20";
-import {Erc20Pool} from "../contract-bindings/ethers/Erc20Pool";
-import {EthPool} from "../contract-bindings/ethers/EthPool";
-import buidler from "@nomiclabs/buidler";
-import {Signer, BigNumber} from "ethers";
-import {expect} from "chai";
+import { Erc20 } from "../contract-bindings/ethers/Erc20";
+import { Erc20Pool } from "../contract-bindings/ethers/Erc20Pool";
+import { EthPool } from "../contract-bindings/ethers/EthPool";
+import { ethers } from "hardhat";
+import { Signer, BigNumber } from "ethers";
+import { expect } from "chai";
 import {
   randomAddress,
   mineBlocks,
@@ -22,7 +22,7 @@ const CYCLE_BLOCKS = 10;
 // The next transaction will be executed on the first block of the next cycle,
 // but the next call will be executed on the last block of the current cycle
 async function mineBlocksUntilCycleEnd(): Promise<void> {
-  const blockNumber = await buidler.ethers.provider.getBlockNumber();
+  const blockNumber = await ethers.provider.getBlockNumber();
   await mineBlocks(CYCLE_BLOCKS - ((blockNumber + 1) % CYCLE_BLOCKS));
 }
 
@@ -130,7 +130,7 @@ abstract class PoolUser {
   async getAllReceivers(): Promise<ProxyReceiverWeights> {
     const receivers = await this.pool.getAllReceivers();
     return new Map(
-      receivers.map(({receiver, receiverWeight, proxyWeight}) => [
+      receivers.map(({ receiver, receiverWeight, proxyWeight }) => [
         receiver,
         new ProxyReceiverWeight(receiverWeight, proxyWeight),
       ])
@@ -143,7 +143,7 @@ abstract class PoolUser {
       receiver: receiver.addr,
       weight,
     }));
-    for (const {receiver, weight} of weightsAddr) {
+    for (const { receiver, weight } of weightsAddr) {
       if (weight == 0) {
         expectedWeights.delete(receiver);
       } else {
@@ -171,7 +171,7 @@ abstract class PoolUser {
 
   async getProxyWeights(): Promise<Map<string, number>> {
     const weights = await this.pool.getProxyWeights();
-    return new Map(weights.map(({receiver, weight}) => [receiver, weight]));
+    return new Map(weights.map(({ receiver, weight }) => [receiver, weight]));
   }
 
   async expectCollectableOnNextBlock(amount: number): Promise<void> {
@@ -228,8 +228,8 @@ abstract class PoolUser {
 }
 
 async function getEthPoolUsers(): Promise<EthPoolUser[]> {
-  const signers = await buidler.ethers.getSigners();
-  const pool = await new EthPoolFactory(signers[0]).deploy(CYCLE_BLOCKS);
+  const signers = await ethers.getSigners();
+  const pool = await new EthPool__factory(signers[0]).deploy(CYCLE_BLOCKS);
   await pool.deployed();
   const poolSigners = signers.map(
     async (signer: Signer) => await EthPoolUser.new(pool, signer)
@@ -251,7 +251,10 @@ class EthPoolUser extends PoolUser {
 
   async topUp(amountFrom: number, amountTo: number): Promise<void> {
     await this.expectWithdrawableOnNextBlock(amountFrom);
-    await submit(this.pool.topUp({value: amountTo - amountFrom}), "topUp ETH");
+    await submit(
+      this.pool.topUp({ value: amountTo - amountFrom }),
+      "topUp ETH"
+    );
     await this.expectWithdrawable(amountTo);
   }
 
@@ -259,7 +262,7 @@ class EthPoolUser extends PoolUser {
     await this.expectWithdrawableOnNextBlock(amountFrom);
     const amount = amountFrom - amountTo;
     const balanceBefore = await this.pool.signer.getBalance();
-    await submit(this.pool.withdraw(amount, {gasPrice: 0}), "withdraw ETH");
+    await submit(this.pool.withdraw(amount, { gasPrice: 0 }), "withdraw ETH");
     const balanceAfter = await this.pool.signer.getBalance();
     const withdrawn = balanceAfter.sub(balanceBefore).toNumber();
     expect(withdrawn).to.equal(
@@ -272,7 +275,7 @@ class EthPoolUser extends PoolUser {
   async collect(expectedAmount: number): Promise<void> {
     await this.expectCollectableOnNextBlock(expectedAmount);
     const balanceBefore = await this.pool.signer.getBalance();
-    await submit(this.pool.collect({gasPrice: 0}), "collect ETH");
+    await submit(this.pool.collect({ gasPrice: 0 }), "collect ETH");
     const balanceAfter = await this.pool.signer.getBalance();
     const collected = balanceAfter.sub(balanceBefore).toNumber();
     expect(collected).to.equal(
@@ -284,15 +287,18 @@ class EthPoolUser extends PoolUser {
 }
 
 async function getErc20PoolUsers(): Promise<Erc20PoolUser[]> {
-  const signers = await buidler.ethers.getSigners();
+  const signers = await ethers.getSigners();
   const signer0 = signers[0];
   const signer0Addr = await signer0.getAddress();
 
   const totalSupply = signers.length;
-  const erc20 = await new RadFactory(signer0).deploy(signer0Addr, totalSupply);
+  const erc20 = await new Rad__factory(signer0).deploy(
+    signer0Addr,
+    totalSupply
+  );
   await erc20.deployed();
 
-  const pool = await new Erc20PoolFactory(signer0).deploy(
+  const pool = await new Erc20Pool__factory(signer0).deploy(
     CYCLE_BLOCKS,
     erc20.address
   );
@@ -501,7 +507,7 @@ describe("EthPool", function () {
   it("Allows sending, which should end after block number 2^64", async function () {
     const [sender, receiver] = await getEthPoolUsers();
     const toppedUp = BigNumber.from(2).pow(64).add(5);
-    await sender.pool.topUp({value: toppedUp});
+    await sender.pool.topUp({ value: toppedUp });
     const withdrawable = await sender.pool.withdrawable();
     expect(withdrawable.toString()).to.equal(
       toppedUp.toString(),
@@ -1040,7 +1046,7 @@ describe("EthPool", function () {
     await mineBlocks(4);
     const balanceBefore = await sender.pool.signer.getBalance();
     await submit(
-      sender.pool.withdraw(withdrawAll, {gasPrice: 0}),
+      sender.pool.withdraw(withdrawAll, { gasPrice: 0 }),
       "withdraw ETH"
     );
     const balanceAfter = await sender.pool.signer.getBalance();

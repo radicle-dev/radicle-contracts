@@ -1,13 +1,26 @@
-import {ethers} from "@nomiclabs/buidler";
-import {assert} from "chai";
-import {submit} from "./support";
-import {AttestationRegistryFactory} from "../contract-bindings/ethers";
+import { ethers } from "hardhat";
+import { assert } from "chai";
+import { BytesLike } from "ethers";
+import { submit } from "./support";
+import { AttestationRegistry__factory } from "../contract-bindings/ethers";
+
+// prettier-ignore
+type Signature = [
+  BytesLike, BytesLike, BytesLike, BytesLike, BytesLike, BytesLike, BytesLike, BytesLike,
+  BytesLike, BytesLike, BytesLike, BytesLike, BytesLike, BytesLike, BytesLike, BytesLike,
+  BytesLike, BytesLike, BytesLike, BytesLike, BytesLike, BytesLike, BytesLike, BytesLike,
+  BytesLike, BytesLike, BytesLike, BytesLike, BytesLike, BytesLike, BytesLike, BytesLike,
+  BytesLike, BytesLike, BytesLike, BytesLike, BytesLike, BytesLike, BytesLike, BytesLike,
+  BytesLike, BytesLike, BytesLike, BytesLike, BytesLike, BytesLike, BytesLike, BytesLike,
+  BytesLike, BytesLike, BytesLike, BytesLike, BytesLike, BytesLike, BytesLike, BytesLike,
+  BytesLike, BytesLike, BytesLike, BytesLike, BytesLike, BytesLike, BytesLike, BytesLike,
+];
 
 describe("Attestations", function () {
   it("should allow attestations to be made and revoked", async function () {
     const [signer] = await ethers.getSigners();
     const address = await signer.getAddress();
-    const attestationRegistry = await new AttestationRegistryFactory(
+    const attestationRegistry = await new AttestationRegistry__factory(
       signer
     ).deploy();
     await attestationRegistry.deployed();
@@ -15,7 +28,7 @@ describe("Attestations", function () {
     const id = ethers.utils.randomBytes(32);
     const rev = ethers.utils.randomBytes(32);
     const pk = ethers.utils.randomBytes(32);
-    const sig = new Array(64).fill(0);
+    const sig = new Array(64).fill([0]) as Signature;
 
     await submit(attestationRegistry.attest(id, rev, pk, sig));
 

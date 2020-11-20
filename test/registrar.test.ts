@@ -1,13 +1,13 @@
-import {ethers} from "@nomiclabs/buidler";
-import {assert} from "chai";
-import {submit, elapseTime} from "./support";
-import {deployAll} from "../src/deploy";
+import { ethers } from "hardhat";
+import { assert } from "chai";
+import { submit, elapseTime } from "./support";
+import { deployAll } from "../src/deploy";
 import * as ensUtils from "../src/ens";
 
 describe("Registrar", function () {
   it("should allow registration of names", async function () {
     const [owner, registrant] = await ethers.getSigners();
-    const {rad, registrar, ens} = await deployAll(owner);
+    const { rad, registrar, ens } = await deployAll(owner);
     const registrantAddr = await registrant.getAddress();
 
     // Let 24 hours pass. This is the minimum to ensure we have a price
@@ -27,7 +27,9 @@ describe("Registrar", function () {
     assert(await registrar.available("treehead"));
 
     // Register `cloudhead.radicle.eth`.
-    await submit(registrar.register("cloudhead", registrantAddr, {value: fee}));
+    await submit(
+      registrar.register("cloudhead", registrantAddr, { value: fee })
+    );
     assert.equal(
       await ens.owner(ensUtils.nameHash("cloudhead.radicle.eth")),
       registrantAddr

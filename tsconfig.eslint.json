@@ -1,8 +1,7 @@
 {
   "extends": "./tsconfig.json",
   "files": [
-    "buidler.config.ts",
-    "node_modules/@nomiclabs/buidler-ethers/src/type-extensions.d.ts",
+    "hardhat.config.ts",
     ".eslintrc.js"
   ],
   "compilerOptions": {

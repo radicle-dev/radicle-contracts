@@ -1,23 +1,18 @@
-import buidler from "@nomiclabs/buidler";
-import {assert} from "chai";
-import {submit, elapseTime} from "./support";
+import { ethers } from "hardhat";
+import { assert } from "chai";
+import { submit, elapseTime } from "./support";
 
-import {VRadFactory, RadFactory} from "../contract-bindings/ethers";
+import { VRad__factory, Rad__factory } from "../contract-bindings/ethers";
 
 describe("VRad", function () {
   it("is a vesting token", async function () {
-    const [
-      owner,
-      grantor,
-      grantee,
-      treasury,
-    ] = await buidler.ethers.getSigners();
+    const [owner, grantor, grantee, treasury] = await ethers.getSigners();
     const grantorAddress = await grantor.getAddress();
     const treasuryAddress = await treasury.getAddress();
     const granteeAddress = await grantee.getAddress();
 
-    const rad = await new RadFactory(owner).deploy(treasuryAddress, 100);
-    const vrad = await new VRadFactory(owner).deploy(
+    const rad = await new Rad__factory(owner).deploy(treasuryAddress, 100);
+    const vrad = await new VRad__factory(owner).deploy(
       rad.address,
       grantorAddress
     );
