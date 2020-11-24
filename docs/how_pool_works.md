@@ -187,6 +187,7 @@ because some funds were sent before the current block and some will be sent afte
 ![](how_pool_works_8.png)
 
 The solution is to ignore the problem and move the whole current cycle delta.
-Some funds already sent in the current cycle may disappear from one receiver and appear in another,
-but it's not dangerous, the receivers have no access to funds coming from an unfinished cycle.
+Some funds already sent in the current cycle may disappear from one receiver and appear in another.
+Such behaviour, however, is not of significant importance since the receivers have no access to funds 
+coming from an unfinished cycle.
 The senders aren't strongly affected either, they already sent these funds and they trust the proxy.
