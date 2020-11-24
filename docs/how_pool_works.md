@@ -132,9 +132,11 @@ The past stays untouched because the already sent funds are out of the sender's 
 # The proxy
 
 The proxy is configured only with a list of receivers with an associated weight.
-It's not possible to send funds via a proxy which isn't configured.
 The sum of the receivers' weights must always be a constant value,
 which is defined in the contract and it's the same for all the proxies.
+A proxy, which has never been configured has no receivers and it's impossible to send funds via it.
+After the first configuration it's impossible to disable the proxy, it's forever active.
+It can be reconfigured, but it must preserve the constant receivers' weights sum.
 
 Just like a receiver, the proxy has a mapping between the cycles and the deltas of received amounts.
 
