@@ -4,7 +4,7 @@ it focuses on the basic principles of the core mechanics.
 
 # Overview
 
-The funding pool is a smart contract, which creates real-time streams of donations.
+The funding pool is a smart contract which creates real-time streams of donations.
 One can start, alter or end the process of sending their funds at any time with immediate effect.
 The flow of funds is automatically maintained and steady over time.
 
