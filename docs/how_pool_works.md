@@ -25,7 +25,8 @@ In the examples below, we assume that the cycle length is 5.
 
 # The receiver
 
-The receiver requires no preparation, any address can receive donations at any time.
+There no setup steps for one to become a receiver.
+Any address can receive donations at any time, from any sender.
 The only function of this role is collection of funds sent by others.
 
 ## The deltas
