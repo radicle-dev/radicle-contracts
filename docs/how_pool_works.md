@@ -131,7 +131,7 @@ The past stays untouched because the already sent funds are out of the sender's 
 
 # The proxy
 
-The proxy is configured only with a list of weighted receivers.
+The proxy is configured only with a list of receivers with an associated weight.
 It's not possible to send funds via a proxy which isn't configured.
 The sum of the receivers' weights must always be a constant value,
 which is defined in the contract and it's the same for all the proxies.
