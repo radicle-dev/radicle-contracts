@@ -11,9 +11,9 @@ The flow of funds is automatically maintained and steady over time.
 There are 3 roles present in the contract.
 Any Ethereum address can simultaneously take on any of these roles.
 
-- The sender - has assets and chooses who do they want to send them to, how much and how fast
-- The receiver - receives funds from senders
-- The proxy - receives funds from senders, but immediately passes them to receivers of their choice
+- **The sender**: has assets and chooses who do they want to send them to, how much, and how fast
+- **The receiver:** receives funds from senders
+- **The proxy**: receives funds from senders, but immediately passes them to receivers of their choice
 
 ## The cycles
 
