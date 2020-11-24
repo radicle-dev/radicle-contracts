@@ -11,9 +11,11 @@ The flow of funds is automatically maintained and steady over time.
 There are 3 roles present in the contract.
 Any Ethereum address can simultaneously take on any of these roles.
 
-- **The sender**: has assets and chooses who do they want to send them to, how much, and how fast
+- **The sender**: has assets and chooses who do they want to send them to,
+how much, and at what rate
 - **The receiver:** receives funds from senders
-- **The proxy**: receives funds from senders, but immediately passes them to receivers of their choice
+- **The proxy**: receives funds from senders,
+but immediately passes them to receivers of their choice
 
 ## The cycles
 
@@ -66,8 +68,8 @@ For any cycle before the first funding begins the added value is assumed to be 0
 
 # The sender
 
-The sender has an available balance, a per-block rate, and a set of receivers. From the available balance,
-the per-block rate is disbursed across all the receivers on every block.
+The sender has an available balance, a per-block rate, and a set of receivers.
+From the available balance, the per-block rate is disbursed across all the receivers on every block.
 
 The balance can be increased by topping up, which requires sending the assets to the contract.
 The currently remaining balance can be withdrawn from the contract at any time.
@@ -191,6 +193,6 @@ because some funds were sent before the current block and some will be sent afte
 
 The solution is to ignore the problem and move the whole current cycle delta.
 Some funds already sent in the current cycle may disappear from one receiver and appear in another.
-Such behaviour, however, is not of significant importance since the receivers have no access to funds
-coming from an unfinished cycle.
+Such behaviour, however, is not of significant importance since
+the receivers have no access to funds coming from an unfinished cycle.
 The senders aren't strongly affected either, they already sent these funds and they trust the proxy.
