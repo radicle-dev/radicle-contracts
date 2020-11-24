@@ -5,15 +5,15 @@ it focuses on the basic principles of the core mechanics.
 # Overview
 
 The funding pool is a smart contract, which creates real-time streams of donations.
-One can start, alter or end the process of sending his funds at any time with immediate effect.
+One can start, alter or end the process of sending their funds at any time with immediate effect.
 The flow of funds is automatically maintained and steady over time.
 
 There are 3 roles present in the contract.
 Any Ethereum address can be used in any number of these roles at the same time.
 
-- The sender - has assets and chooses who does he want to send them to, how much and how fast
+- The sender - has assets and chooses who do they want to send them to, how much and how fast
 - The receiver - receives funds from senders
-- The proxy - receives funds from senders, but immediately passes them to receivers of his choice
+- The proxy - receives funds from senders, but immediately passes them to receivers of their choice
 
 ## The cycles
 
@@ -39,7 +39,7 @@ Here we have a history of a receiver, who has 2 senders.
 Each of them was sending different amounts over different periods of time.
 On the end of each cycle, the collectable amount was increased by the total sent amount.
 
-Each receiver needs to know, how much was sent to him.
+Each receiver needs to know, how much was sent to them.
 To accomplish that the history of received funds needs to be stored in some form.
 The receiver doesn't care, who exactly is sending on each block and in what configuration.
 The only thing that matters are the collectable per-cycle values below the timeline.
@@ -59,8 +59,8 @@ This is what the contract actually stores: a mapping from cycle numbers to delta
 
 ## Collecting
 
-When the receiver wants to collect the funds, he can iterate over the finished cycles,
-reconstruct the added values from deltas and then calculate the final currently collectable value.
+When the receiver wants to collect the funds, they can iterate over the finished cycles, reconstruct
+the added values from deltas and then calculate the collectable amount at this point in time.
 For any cycle before the first funding begins the added value is assumed to be 0.
 
 # The sender
@@ -115,7 +115,7 @@ In this case, the reverting is split into 2 cycles too, one with -4 and the othe
 
 Let's assume that a few blocks have passed, but the sender wants to stop sending.
 This can happen because the sender doesn't want to fund the receiver anymore
-or because he wants to change some of its configuration.
+or because they want to change some of its configuration.
 In the latter case sending is stopped only to be immediately resumed, but with different parameters.
 Either way, the effects of the sender on the receiver's deltas need to be reverted
 from the current block to the end of the existing funding period.
