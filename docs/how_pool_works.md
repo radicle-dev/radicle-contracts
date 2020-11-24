@@ -35,9 +35,9 @@ The receiver can collect funds sent on a given block only when the cycle contain
 
 ![](how_pool_works_2.png)
 
-Here we have a history of a receiver, who has 2 senders.
-Each of them was sending different amounts over different periods of time.
-On the end of each cycle, the collectable amount was increased by the total sent amount.
+Here, we see the timeline of a receiver who is receiving funds from two senders.
+Each of the senders has sent different amounts over different periods of time.
+At the end of each cycle, the collectable amount was increased by the total sent amount.
 
 Each receiver needs to know, how much was sent to them.
 To accomplish that the history of received funds needs to be stored in some form.
