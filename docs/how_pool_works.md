@@ -181,7 +181,7 @@ This is done in the same way as removal, but this time the deltas are added and 
 
 Unlike the senders, the proxies store data with a per-cycle precision.
 When changing the set of receivers, a delta describing the current cycle may need to be applied.
-When it happens, it's unclear, what part of the per-cycle delta should be moved,
+When it happens, it's unclear what part of the per-cycle delta should be moved,
 because some funds were sent before the current block and some will be sent after it.
 
 ![](how_pool_works_8.png)
