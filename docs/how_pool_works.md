@@ -9,7 +9,7 @@ One can start, alter or end the process of sending their funds at any time with 
 The flow of funds is automatically maintained and steady over time.
 
 There are 3 roles present in the contract.
-Any Ethereum address can be used in any number of these roles at the same time.
+Any Ethereum address can simultaneously take on any of these roles.
 
 - The sender - has assets and chooses who do they want to send them to, how much and how fast
 - The receiver - receives funds from senders
