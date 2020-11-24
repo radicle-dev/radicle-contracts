@@ -69,7 +69,7 @@ The sender has an available balance, a per-block rate, and a set of receivers. F
 the per-block rate is disbursed across all the receivers on every block.
 
 The balance can be increased by topping up, which requires sending the assets to the contract.
-The currently unspent balance can be withdrawn and transferred out of the contract at any time.
+The currently remaining balance can be withdrawn from the contract at any time.
 
 The overall rate of funding of the sender is described with the amount per block.
 It limits the value, which can be taken from the balance on each block and sent to the receivers.
