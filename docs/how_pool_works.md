@@ -109,8 +109,10 @@ This is expressed with the +3 delta change, which turns 2 per cycle into the ful
 
 ## Stopping sending
 
-When funding stops, the deltas need to be reverted.
+When funding is stopped, the deltas need to be reverted.
 To do that basically the same process is applied, just with negative deltas.
+Because the already sent funds are out of the sender's control, the past deltas must stay untouched
+and only the effects on the receiver's future must be erased.
 
 In this case, the reverting is split into 2 cycles too, one with -4 and the other with -1.
 
@@ -188,6 +190,6 @@ because some funds were sent before the current block and some will be sent afte
 
 The solution is to ignore the problem and move the whole current cycle delta.
 Some funds already sent in the current cycle may disappear from one receiver and appear in another.
-Such behaviour, however, is not of significant importance since the receivers have no access to funds 
+Such behaviour, however, is not of significant importance since the receivers have no access to funds
 coming from an unfinished cycle.
 The senders aren't strongly affected either, they already sent these funds and they trust the proxy.
