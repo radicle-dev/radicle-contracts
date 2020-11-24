@@ -148,7 +148,7 @@ Next, it iterates over all the proxy's receivers and applies changes to
 their deltas as if they were directly funded by the sender.
 The funding rate applied to the receivers is split according to their weights in the proxy.
 
-For the example sake let's assume that the delta's proxy weights sum must be equal 5.
+For the example sake let's assume that the delta's proxy weights sum must be equal to 5.
 The proxy has 2 receivers: A with weight 3 and B with weight 2.
 The sender wants to start sending via the proxy 2 per block or 10 per cycle.
 It's 2 per cycle per proxy weight.
