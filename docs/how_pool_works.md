@@ -165,7 +165,7 @@ All the deltas are once again applied, but with negative values.
 
 When the list of proxy receivers is updated, all funding must be moved to a new set of receivers.
 That's when the proxy's deltas come useful.
-For each cycle and each receiver, the proxy can tell, what total delta it has applied.
+For each cycle and each receiver, the proxy can tell the total delta it has applied.
 It can then use this information to erase its influence from its receivers.
 
 ![](how_pool_works_7.png)
