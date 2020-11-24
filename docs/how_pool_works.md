@@ -65,7 +65,8 @@ For any cycle before the first funding begins the added value is assumed to be 0
 
 # The sender
 
-The sender has a balance and a set of parameters, which describe the sending process.
+The sender has an available balance, a per-block rate, and a set of receivers. From the available balance,
+the per-block rate is disbursed across all the receivers on every block.
 
 The balance can be increased by topping up, which requires sending the assets to the contract.
 The currently unspent balance can be withdrawn and transferred out of the contract at any time.
