@@ -51,7 +51,7 @@ This reduces the amount of stored data significantly, but this can be optimized 
 ![](how_pool_works_3.png)
 
 In this example, we started with having the raw collectable value of 23 for every block until
-the end of the blockchain.
+the end of time.
 We then reduced that to storing values added to the collectable amount on each cycle.
 Now we need to describe only cycles when receiving anything.
 The senders usually are sending constant per-cycle amounts over long periods of time, so
