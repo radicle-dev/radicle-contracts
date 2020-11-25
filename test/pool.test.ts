@@ -142,11 +142,37 @@ abstract class PoolUser {
     await this.expectAmountPerBlock(amount);
   }
 
+  async setReceivers(
+    receivers: ReceiverWeights,
+    proxies: ReceiverWeights
+  ): Promise<void> {
+    const allReceivers = await this.getAllReceivers();
+    const receiversAddr = receiverWeightsForContract(receivers);
+    const proxiesAddr = receiverWeightsForContract(proxies);
+    await submit(
+      this.pool.setReceivers(receiversAddr, proxiesAddr),
+      "setReceivers"
+    );
+    receiversAddr.forEach(({ receiver, weight }) =>
+      updateReceiverWeights(
+        allReceivers,
+        receiver,
+        (receiverWeight) => (receiverWeight.receiverWeight = weight)
+      )
+    );
+    proxiesAddr.forEach(({ receiver, weight }) =>
+      updateReceiverWeights(
+        allReceivers,
+        receiver,
+        (receiverWeight) => (receiverWeight.proxyWeight = weight)
+      )
+    );
+    await this.expectReceivers(allReceivers);
+  }
+
   async setReceiver(receiver: this, weight: number): Promise<void> {
     const receivers = await this.getAllReceivers();
-
     await submit(this.pool.setReceiver(receiver.addr, weight), "setReceiver");
-
     updateReceiverWeights(
       receivers,
       receiver.addr,
@@ -646,6 +672,40 @@ describe("EthPool", function () {
       await sender.pool.setReceiver(randomAddress(), 1);
     }
     await sender.expectSetReceiverReverts(receiver, 1, "Too many receivers");
+  });
+
+  it("Allows batch setting multiple receivers and proxies", async function () {
+    const [
+      sender,
+      receiver1,
+      receiver2,
+      receiver3,
+      proxy1,
+      proxy2,
+    ] = await getEthPoolUsers();
+    const proxyWeightBase = await sender.pool.PROXY_WEIGHTS_SUM();
+    await proxy1.setProxyWeights([[receiver1, proxyWeightBase]]);
+    await proxy2.setProxyWeights([[receiver2, proxyWeightBase]]);
+    await sender.setReceivers(
+      [
+        [receiver1, 1],
+        [receiver2, 2],
+        [receiver3, 3],
+      ],
+      [
+        [proxy1, proxyWeightBase],
+        [proxy2, 2 * proxyWeightBase],
+      ]
+    );
+  });
+
+  it("Allows batch setting no receivers and no proxies", async function () {
+    const [sender, receiver, proxy] = await getEthPoolUsers();
+    const proxyWeightBase = await sender.pool.PROXY_WEIGHTS_SUM();
+    await proxy.setProxyWeights([[receiver, proxyWeightBase]]);
+    await sender.setReceiver(receiver, 1);
+    await sender.setProxy(proxy, proxyWeightBase);
+    await sender.setReceivers([], []);
   });
 
   it("Allows sending via a proxy", async function () {
