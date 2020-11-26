@@ -7,7 +7,7 @@ import { Erc20 } from "../contract-bindings/ethers/Erc20";
 import { Erc20Pool } from "../contract-bindings/ethers/Erc20Pool";
 import { EthPool } from "../contract-bindings/ethers/EthPool";
 import { ethers } from "hardhat";
-import { Signer, BigNumber } from "ethers";
+import { Signer, BigNumber, ContractTransaction } from "ethers";
 import { expect } from "chai";
 import {
   randomAddress,
@@ -27,6 +27,20 @@ async function mineBlocksUntilCycleEnd(): Promise<void> {
 }
 
 type AnyPool = EthPool | Erc20Pool;
+
+type ReceiverWeights = [PoolUser, number][];
+
+function receiverWeightsForContract(
+  weights: ReceiverWeights
+): Array<{
+  receiver: string;
+  weight: number;
+}> {
+  return weights.map(([receiver, weight]) => ({
+    receiver: receiver.addr,
+    weight,
+  }));
+}
 
 class ProxyReceiverWeight {
   receiverWeight: number;
@@ -70,6 +84,57 @@ abstract class PoolUser {
   constructor(pool: AnyPool, addr: string) {
     this.pool = pool;
     this.addr = addr;
+  }
+
+  abstract getBalance(): Promise<BigNumber>;
+
+  abstract submitTopUp(amount: number): Promise<ContractTransaction>;
+
+  async collect(expectedAmount: number): Promise<void> {
+    await this.expectCollectableOnNextBlock(expectedAmount);
+    await this.submitChangingBalance(
+      () => this.pool.collect({ gasPrice: 0 }),
+      "collect",
+      expectedAmount
+    );
+    await this.expectCollectable(0);
+  }
+
+  async topUp(amountFrom: number, amountTo: number): Promise<void> {
+    await this.expectWithdrawableOnNextBlock(amountFrom);
+    const amount = amountTo - amountFrom;
+    await this.submitChangingBalance(
+      () => this.submitTopUp(amount),
+      "topUp",
+      -amount
+    );
+    await this.expectWithdrawable(amountTo);
+  }
+
+  async withdraw(amountFrom: number, amountTo: number): Promise<void> {
+    await this.expectWithdrawableOnNextBlock(amountFrom);
+    const amount = amountFrom - amountTo;
+    await this.submitChangingBalance(
+      () => this.pool.withdraw(amount, { gasPrice: 0 }),
+      "withdraw",
+      amount
+    );
+    await this.expectWithdrawable(amountTo);
+  }
+
+  async submitChangingBalance(
+    fn: () => Promise<ContractTransaction>,
+    txName: string,
+    balanceChangeExpected: number
+  ): Promise<void> {
+    const balanceBefore = await this.getBalance();
+    await submit(fn(), txName);
+    const balanceAfter = await this.getBalance();
+    const balanceChangeActual = balanceAfter.sub(balanceBefore).toNumber();
+    expect(balanceChangeActual).to.equal(
+      balanceChangeExpected,
+      "Unexpected balance change from call to " + txName
+    );
   }
 
   async setAmountPerBlock(amount: number): Promise<void> {
@@ -137,12 +202,9 @@ abstract class PoolUser {
     );
   }
 
-  async setProxyWeights(weights: [this, number][]): Promise<void> {
+  async setProxyWeights(weights: ReceiverWeights): Promise<void> {
     const expectedWeights = await this.getProxyWeights();
-    const weightsAddr = weights.map(([receiver, weight]) => ({
-      receiver: receiver.addr,
-      weight,
-    }));
+    const weightsAddr = receiverWeightsForContract(weights);
     for (const { receiver, weight } of weightsAddr) {
       if (weight == 0) {
         expectedWeights.delete(receiver);
@@ -155,13 +217,10 @@ abstract class PoolUser {
   }
 
   async expectSetProxyWeightsReverts(
-    weights: [this, number][],
+    weights: ReceiverWeights,
     expectedCause: string
   ): Promise<void> {
-    const weightsAddr = weights.map(([receiver, weight]) => ({
-      receiver: receiver.addr,
-      weight,
-    }));
+    const weightsAddr = receiverWeightsForContract(weights);
     await submitFailing(
       this.pool.setProxyWeights(weightsAddr),
       "setProxyWeights",
@@ -249,40 +308,12 @@ class EthPoolUser extends PoolUser {
     return new EthPoolUser(pool.connect(signer), await signer.getAddress());
   }
 
-  async topUp(amountFrom: number, amountTo: number): Promise<void> {
-    await this.expectWithdrawableOnNextBlock(amountFrom);
-    await submit(
-      this.pool.topUp({ value: amountTo - amountFrom }),
-      "topUp ETH"
-    );
-    await this.expectWithdrawable(amountTo);
+  async getBalance(): Promise<BigNumber> {
+    return await this.pool.signer.getBalance();
   }
 
-  async withdraw(amountFrom: number, amountTo: number): Promise<void> {
-    await this.expectWithdrawableOnNextBlock(amountFrom);
-    const amount = amountFrom - amountTo;
-    const balanceBefore = await this.pool.signer.getBalance();
-    await submit(this.pool.withdraw(amount, { gasPrice: 0 }), "withdraw ETH");
-    const balanceAfter = await this.pool.signer.getBalance();
-    const withdrawn = balanceAfter.sub(balanceBefore).toNumber();
-    expect(withdrawn).to.equal(
-      amount,
-      "The withdrawn amount is different from the requested amount"
-    );
-    await this.expectWithdrawable(amountTo);
-  }
-
-  async collect(expectedAmount: number): Promise<void> {
-    await this.expectCollectableOnNextBlock(expectedAmount);
-    const balanceBefore = await this.pool.signer.getBalance();
-    await submit(this.pool.collect({ gasPrice: 0 }), "collect ETH");
-    const balanceAfter = await this.pool.signer.getBalance();
-    const collected = balanceAfter.sub(balanceBefore).toNumber();
-    expect(collected).to.equal(
-      expectedAmount,
-      "The collected amount is different from the expected amount"
-    );
-    await this.expectCollectable(0);
+  async submitTopUp(amount: number): Promise<ContractTransaction> {
+    return this.pool.topUp({ value: amount, gasPrice: 0 });
   }
 }
 
@@ -339,45 +370,12 @@ class Erc20PoolUser extends PoolUser {
     );
   }
 
-  async topUp(amountFrom: number, amountTo: number): Promise<void> {
-    const amount = amountTo - amountFrom;
-    const balanceBefore = await this.erc20.balanceOf(this.pool.address);
-    await this.expectWithdrawableOnNextBlock(amountFrom);
-    await submit(this.pool.topUp(amount), "topUp ERC-20");
-    const balanceAfter = await this.erc20.balanceOf(this.pool.address);
-    const withdrawn = balanceAfter.sub(balanceBefore).toNumber();
-    expect(withdrawn).to.equal(
-      amount,
-      "The transferred amount is different from the requested amount"
-    );
-    await this.expectWithdrawable(amountTo);
+  async getBalance(): Promise<BigNumber> {
+    return await this.erc20.balanceOf(this.addr);
   }
 
-  async withdraw(amountFrom: number, amountTo: number): Promise<void> {
-    await this.expectWithdrawableOnNextBlock(amountFrom);
-    const amount = amountFrom - amountTo;
-    const balanceBefore = await this.erc20.balanceOf(this.addr);
-    await submit(this.pool.withdraw(amount), "withdraw ERC-20");
-    const balanceAfter = await this.erc20.balanceOf(this.addr);
-    const withdrawn = balanceAfter.sub(balanceBefore).toNumber();
-    expect(withdrawn).to.equal(
-      amount,
-      "The withdrawn amount is different from the requested amount"
-    );
-    await this.expectWithdrawable(amountTo);
-  }
-
-  async collect(expectedAmount: number): Promise<void> {
-    await this.expectCollectableOnNextBlock(expectedAmount);
-    const balanceBefore = await this.erc20.balanceOf(this.addr);
-    await submit(this.pool.collect(), "collect ERC-20");
-    const balanceAfter = await this.erc20.balanceOf(this.addr);
-    const collected = balanceAfter.sub(balanceBefore).toNumber();
-    expect(collected).to.equal(
-      expectedAmount,
-      "The collected amount is different from the expected amount"
-    );
-    await this.expectCollectable(0);
+  async submitTopUp(amount: number): Promise<ContractTransaction> {
+    return this.pool.topUp(amount);
   }
 }
 
