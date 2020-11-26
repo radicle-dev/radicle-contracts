@@ -69,18 +69,25 @@ For any cycle before the first funding begins the added value is assumed to be 0
 
 # The sender
 
-The sender has an available balance, a per-block rate, and a set of receivers.
-From the available balance, the per-block rate is disbursed across all the receivers on every block.
+The sender has a balance, a funding rate, and a set of receivers.
 
-The balance can be increased by topping up, which requires sending the assets to the contract.
-The currently remaining balance can be withdrawn from the contract at any time.
+The balance is reduced by the funding rate on every block
+and the same amount is credited to the sender's receivers.
+This process doesn't actually require updates on every block,
+its effects are calculated on the fly whenever they are needed.
+The contract state is updated only when the funding parameters are altered by the users.
+
+The balance is increased by topping up,
+which requires sending the assets from the user to the contract.
+The balance is reducing by withdrawing,
+which results in sending the assets from the contract to the user.
 
 The overall rate of funding of the sender is described with the amount per block.
-It limits the value, which can be taken from the balance on each block and sent to the receivers.
+It limits the value, which is taken from the balance on each block and sent to the receivers.
 This value stays constant over time unless explicitly updated.
 
 The sender maintains a list of receivers, each of them with a weight.
-The weights regulate how the per-block amount is split between the receivers.
+The weights regulate how the funded amount is split between the receivers.
 For example, a receiver with weight 2 is going to get a share twice as big
 as a receiver with weight 1, but only half as big as another receiver with weight 4.
 
@@ -89,7 +96,7 @@ as a receiver with weight 1, but only half as big as another receiver with weigh
 When the sender has a sufficient balance, a sending rate and a list of receivers, sending starts.
 First, the funding period is calculated.
 Its start is the current block and its end is the block on which the balance will run out.
-Next, for each receiver the weighted share of the per-block rate is calculated.
+Next, for each receiver the weighted share of the funding rate is calculated.
 The receiver's deltas are updated to reflect that during the whole sending period on every block
 it's going to receive the calculated amount.
 
