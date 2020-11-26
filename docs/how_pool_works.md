@@ -19,8 +19,9 @@ but immediately passes them to receivers of their choice
 
 ## The cycles
 
-The whole blockchain history is divided into cycles of equal length.
-Every cycle contains the same, constant number of blocks.
+The whole blockchain history is divided into cycles of
+equal length so that every block belongs to a cycle.
+Cycles are numbered starting with zero.
 In the examples below, we assume that the cycle length is 5.
 
 ![](how_pool_works_1.png)
@@ -29,7 +30,7 @@ In the examples below, we assume that the cycle length is 5.
 
 There are no setup steps for one to become a receiver.
 Any address can receive donations at any time, from any sender.
-The only function of this role is collection of funds sent by others.
+The only function of this role is the collection of funds sent by others.
 
 ## The deltas
 
@@ -78,7 +79,7 @@ The overall rate of funding of the sender is described with the amount per block
 It limits the value, which can be taken from the balance on each block and sent to the receivers.
 This value stays constant over time unless explicitly updated.
 
-The sender maintains a list of receivers too, each of them with a weight.
+The sender maintains a list of receivers, each of them with a weight.
 The weights regulate how the per-block amount is split between the receivers.
 For example, a receiver with weight 2 is going to get a share twice as big
 as a receiver with weight 1, but only half as big as another receiver with weight 4.
