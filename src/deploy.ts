@@ -13,9 +13,11 @@ import {
   Rad__factory,
   Exchange__factory,
   EthPool__factory,
-  Registrar__factory,
+  Erc20Pool__factory,
   FixedWindowOracle__factory,
+  Registrar__factory,
   StablePriceOracle__factory,
+  Erc20Pool,
 } from "../contract-bindings/ethers";
 import * as ensUtils from "./ens";
 
@@ -32,6 +34,7 @@ export interface DeployedContracts {
   rad: Rad;
   ens: Ens;
   ethPool: EthPool;
+  erc20Pool: Erc20Pool;
 }
 
 export async function deployAll(
@@ -42,8 +45,9 @@ export async function deployAll(
   const ens = (await deployContract(signer, ENSRegistry, [])) as Ens;
   const registrar = await deployRegistrar(exchange, ens, signer);
   const ethPool = await deployEthPool(signer, 10);
+  const erc20Pool = await deployErc20Pool(signer, 10, rad.address);
 
-  return { rad, exchange, registrar, ens, ethPool };
+  return { rad, exchange, registrar, ens, ethPool, erc20Pool };
 }
 
 export async function deployRad(signer: ethers.Signer): Promise<Rad> {
@@ -178,6 +182,15 @@ export async function deployEthPool(
   cycleBlocks: number
 ): Promise<EthPool> {
   return await new EthPool__factory(signer).deploy(cycleBlocks);
+}
+
+export async function deployErc20Pool(
+  signer: ethers.Signer,
+  cycleBlocks: number,
+  erc20TokenAddress: string,
+): Promise<Erc20Pool> {
+  return await new Erc20Pool__factory(signer)
+    .deploy(cycleBlocks, erc20TokenAddress);
 }
 
 async function submitOk(
