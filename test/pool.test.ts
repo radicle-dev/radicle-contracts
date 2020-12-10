@@ -29,13 +29,12 @@ async function mineBlocksUntilCycleEnd(): Promise<void> {
 type AnyPool = EthPool | Erc20Pool;
 
 type ReceiverWeights = [PoolUser, number][];
-
-function receiverWeightsForContract(
-  weights: ReceiverWeights
-): Array<{
+type ReceiverWeightsAddr = Array<{
   receiver: string;
   weight: number;
-}> {
+}>;
+
+function receiverWeightsAddr(weights: ReceiverWeights): ReceiverWeightsAddr {
   return weights.map(([receiver, weight]) => ({
     receiver: receiver.addr,
     weight,
@@ -63,16 +62,18 @@ class ProxyReceiverWeight {
 type ProxyReceiverWeights = Map<string, ProxyReceiverWeight>;
 
 function updateReceiverWeights(
-  list: ProxyReceiverWeights,
+  weights: ProxyReceiverWeights,
   receiver: string,
-  update: (weight: ProxyReceiverWeight) => void
+  receiverWeight?: number,
+  proxyWeight?: number
 ): void {
-  const receiverWeight = list.get(receiver) || ProxyReceiverWeight.empty();
-  update(receiverWeight);
-  if (receiverWeight.isEmpty()) {
-    list.delete(receiver);
+  const weight = weights.get(receiver) || ProxyReceiverWeight.empty();
+  if (receiverWeight !== undefined) weight.receiverWeight = receiverWeight;
+  if (proxyWeight !== undefined) weight.proxyWeight = proxyWeight;
+  if (weight.isEmpty()) {
+    weights.delete(receiver);
   } else {
-    list.set(receiver, receiverWeight);
+    weights.set(receiver, weight);
   }
 }
 
@@ -151,39 +152,26 @@ abstract class PoolUser {
     receivers: ReceiverWeights,
     proxies: ReceiverWeights
   ): Promise<void> {
-    const allReceivers = await this.getAllReceivers();
-    const receiversAddr = receiverWeightsForContract(receivers);
-    const proxiesAddr = receiverWeightsForContract(proxies);
+    const receiversAddr = receiverWeightsAddr(receivers);
+    const proxiesAddr = receiverWeightsAddr(proxies);
+    const expectedReceivers = await this.expectedReceivers(
+      receiversAddr,
+      proxiesAddr
+    );
     await submit(
       this.pool.setReceivers(receiversAddr, proxiesAddr),
       "setReceivers"
     );
-    receiversAddr.forEach(({ receiver, weight }) =>
-      updateReceiverWeights(
-        allReceivers,
-        receiver,
-        (receiverWeight) => (receiverWeight.receiverWeight = weight)
-      )
-    );
-    proxiesAddr.forEach(({ receiver, weight }) =>
-      updateReceiverWeights(
-        allReceivers,
-        receiver,
-        (receiverWeight) => (receiverWeight.proxyWeight = weight)
-      )
-    );
-    await this.expectReceivers(allReceivers);
+    await this.expectReceivers(expectedReceivers);
   }
 
   async setReceiver(receiver: this, weight: number): Promise<void> {
-    const receivers = await this.getAllReceivers();
-    await submit(this.pool.setReceiver(receiver.addr, weight), "setReceiver");
-    updateReceiverWeights(
-      receivers,
-      receiver.addr,
-      (receiverWeight) => (receiverWeight.receiverWeight = weight)
+    const expectedReceivers = await this.expectedReceivers(
+      receiverWeightsAddr([[receiver, weight]]),
+      []
     );
-    await this.expectReceivers(receivers);
+    await submit(this.pool.setReceiver(receiver.addr, weight), "setReceiver");
+    await this.expectReceivers(expectedReceivers);
   }
 
   async expectSetReceiverReverts(
@@ -191,24 +179,20 @@ abstract class PoolUser {
     weight: number,
     expectedCause: string
   ): Promise<void> {
-    const receivers = await this.getAllReceivers();
     await submitFailing(
       this.pool.setReceiver(receiver.addr, weight),
       "setReceiver",
       expectedCause
     );
-    await this.expectReceivers(receivers);
   }
 
   async setProxy(receiver: this, weight: number): Promise<void> {
-    const receivers = await this.getAllReceivers();
-    await submit(this.pool.setProxy(receiver.addr, weight), "setProxy");
-    updateReceiverWeights(
-      receivers,
-      receiver.addr,
-      (receiverWeight) => (receiverWeight.proxyWeight = weight)
+    const expectedReceivers = await this.expectedReceivers(
+      [],
+      receiverWeightsAddr([[receiver, weight]])
     );
-    await this.expectReceivers(receivers);
+    await submit(this.pool.setProxy(receiver.addr, weight), "setProxy");
+    await this.expectReceivers(expectedReceivers);
   }
 
   async expectSetProxyReverts(
@@ -235,7 +219,7 @@ abstract class PoolUser {
 
   async setProxyWeights(weights: ReceiverWeights): Promise<void> {
     const expectedWeights = await this.getProxyWeights();
-    const weightsAddr = receiverWeightsForContract(weights);
+    const weightsAddr = receiverWeightsAddr(weights);
     for (const { receiver, weight } of weightsAddr) {
       if (weight == 0) {
         expectedWeights.delete(receiver);
@@ -251,7 +235,7 @@ abstract class PoolUser {
     weights: ReceiverWeights,
     expectedCause: string
   ): Promise<void> {
-    const weightsAddr = receiverWeightsForContract(weights);
+    const weightsAddr = receiverWeightsAddr(weights);
     await submitFailing(
       this.pool.setProxyWeights(weightsAddr),
       "setProxyWeights",
@@ -308,6 +292,21 @@ abstract class PoolUser {
       amount,
       "The amount per block is different from the expected amount"
     );
+  }
+
+  // The expected amount per block after updating it with the given values
+  async expectedReceivers(
+    receivers: ReceiverWeightsAddr,
+    proxies: ReceiverWeightsAddr
+  ): Promise<ProxyReceiverWeights> {
+    const allReceivers = await this.getAllReceivers();
+    receivers.forEach(({ receiver, weight }) =>
+      updateReceiverWeights(allReceivers, receiver, weight, undefined)
+    );
+    proxies.forEach(({ receiver, weight }) =>
+      updateReceiverWeights(allReceivers, receiver, undefined, weight)
+    );
+    return allReceivers;
   }
 
   async expectReceivers(receivers: ProxyReceiverWeights): Promise<void> {
