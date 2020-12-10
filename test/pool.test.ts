@@ -7,7 +7,7 @@ import { Erc20 } from "../contract-bindings/ethers/Erc20";
 import { Erc20Pool } from "../contract-bindings/ethers/Erc20Pool";
 import { EthPool } from "../contract-bindings/ethers/EthPool";
 import { ethers } from "hardhat";
-import { Signer, BigNumber, ContractTransaction } from "ethers";
+import { Signer, BigNumber, ContractTransaction, BigNumberish } from "ethers";
 import { expect } from "chai";
 import {
   randomAddress,
@@ -137,9 +137,14 @@ abstract class PoolUser {
     );
   }
 
-  async setAmountPerBlock(amount: number): Promise<void> {
+  async setAmountPerBlock(amount: BigNumberish): Promise<void> {
+    const expectedAmountPerBlock = await this.expectedAmountPerBlock(amount);
     await submit(this.pool.setAmountPerBlock(amount), "setAmountPerBlock");
-    await this.expectAmountPerBlock(amount);
+    await this.expectAmountPerBlock(expectedAmountPerBlock);
+  }
+
+  async getAmountPerBlock(): Promise<number> {
+    return (await this.pool.getAmountPerBlock()).toNumber();
   }
 
   async setReceivers(
@@ -287,8 +292,18 @@ abstract class PoolUser {
     );
   }
 
+  // The expected amount per block after updating it with the given value
+  async expectedAmountPerBlock(setAmount: BigNumberish): Promise<number> {
+    const amountPerBlockUnchanged = await this.pool.AMOUNT_PER_BLOCK_UNCHANGED();
+    if (amountPerBlockUnchanged.eq(setAmount)) {
+      return await this.getAmountPerBlock();
+    } else {
+      return BigNumber.from(setAmount).toNumber();
+    }
+  }
+
   async expectAmountPerBlock(amount: number): Promise<void> {
-    const actualAmount = (await this.pool.getAmountPerBlock()).toNumber();
+    const actualAmount = await this.getAmountPerBlock();
     expect(actualAmount).to.equal(
       amount,
       "The amount per block is different from the expected amount"
@@ -526,6 +541,13 @@ describe("EthPool", function () {
     await mineBlocksUntilCycleEnd();
     // Receiver had 15 blocks paying 10 per block
     await receiver.collect(150);
+  });
+
+  it("Allows not changing amount per block", async function () {
+    const [sender] = await getEthPoolUsers();
+    const amountPerBlockUnchanged = await sender.pool.AMOUNT_PER_BLOCK_UNCHANGED();
+    await sender.setAmountPerBlock(10);
+    await sender.setAmountPerBlock(amountPerBlockUnchanged);
   });
 
   it("Allows sending, which should end after block number 2^64", async function () {
