@@ -29,7 +29,7 @@ async function mineBlocksUntilCycleEnd(): Promise<void> {
 
 type AnyPool = EthPool | Erc20Pool;
 
-type ReceiverWeights = [PoolUser, number][];
+type ReceiverWeights = [PoolUser<AnyPool>, number][];
 type ReceiverWeightsAddr = Array<{
   receiver: string;
   weight: number;
@@ -78,12 +78,12 @@ function updateReceiverWeights(
   }
 }
 
-abstract class PoolUser {
-  pool: AnyPool;
+abstract class PoolUser<Pool extends AnyPool> {
+  pool: Pool;
   // The address of the user
   addr: string;
 
-  constructor(pool: AnyPool, addr: string) {
+  constructor(pool: Pool, addr: string) {
     this.pool = pool;
     this.addr = addr;
   }
@@ -384,12 +384,9 @@ async function getEthPoolUsers(): Promise<EthPoolUser[]> {
   return Promise.all(poolSigners);
 }
 
-class EthPoolUser extends PoolUser {
-  pool: EthPool;
-
+class EthPoolUser extends PoolUser<EthPool> {
   constructor(pool: EthPool, addr: string) {
     super(pool, addr);
-    this.pool = pool;
   }
 
   static async new(pool: EthPool, signer: Signer): Promise<EthPoolUser> {
@@ -440,22 +437,22 @@ async function getErc20PoolUsers(): Promise<Erc20PoolUser[]> {
   await pool.deployed();
 
   const supplyPerUser = (await erc20.totalSupply()).div(signers.length);
+  const approveAll = BigNumber.from(1).shl(256).sub(1);
   const users = [];
   for (const signer of signers) {
     const user = await Erc20PoolUser.new(pool, erc20, signer);
-    users.push(user);
     await erc20.transfer(user.addr, supplyPerUser);
+    await user.erc20.approve(pool.address, approveAll);
+    users.push(user);
   }
   return users;
 }
 
-class Erc20PoolUser extends PoolUser {
-  pool: Erc20Pool;
+class Erc20PoolUser extends PoolUser<Erc20Pool> {
   erc20: Erc20;
 
-  constructor(pool: Erc20Pool, erc20: Erc20, addr: string) {
+  constructor(pool: Erc20Pool, addr: string, erc20: Erc20) {
     super(pool, addr);
-    this.pool = pool;
     this.erc20 = erc20;
   }
 
@@ -464,14 +461,10 @@ class Erc20PoolUser extends PoolUser {
     erc20: Erc20,
     signer: Signer
   ): Promise<Erc20PoolUser> {
+    const userPool = pool.connect(signer);
+    const userAddr = await signer.getAddress();
     const userErc20 = erc20.connect(signer);
-    const uint256Max = BigNumber.from(1).shl(256).sub(1);
-    await userErc20.approve(pool.address, uint256Max);
-    return new Erc20PoolUser(
-      pool.connect(signer),
-      userErc20,
-      await signer.getAddress()
-    );
+    return new Erc20PoolUser(userPool, userAddr, userErc20);
   }
 
   async getBalance(): Promise<BigNumber> {
