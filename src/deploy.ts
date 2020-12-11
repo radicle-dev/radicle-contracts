@@ -9,7 +9,12 @@ import { Rad } from "../contract-bindings/ethers/Rad";
 import { Ens } from "../contract-bindings/ethers/Ens";
 import { Exchange } from "../contract-bindings/ethers/Exchange";
 import { EthPool } from "../contract-bindings/ethers/EthPool";
+import { Governor } from "../contract-bindings/ethers/Governor";
+import { Token } from "../contract-bindings/ethers/Token";
 import {
+  Governor__factory,
+  Token__factory,
+  Timelock__factory,
   Rad__factory,
   Exchange__factory,
   EthPool__factory,
@@ -28,10 +33,16 @@ import WETH9 from "@uniswap/v2-periphery/build/WETH9.json";
 import IUniswapV2Pair from "@uniswap/v2-core/build/IUniswapV2Pair.json";
 import ENSRegistry from "@ensdomains/ens/build/contracts/ENSRegistry.json";
 
+export interface DeployedGovernance {
+  token: Token;
+  governor: Governor;
+}
+
 export interface DeployedContracts {
+  gov: DeployedGovernance;
+  rad: Rad;
   registrar: Registrar;
   exchange: Exchange;
-  rad: Rad;
   ens: Ens;
   ethPool: EthPool;
   erc20Pool: Erc20Pool;
@@ -40,6 +51,7 @@ export interface DeployedContracts {
 export async function deployAll(
   signer: ethers.Signer
 ): Promise<DeployedContracts> {
+  const gov = await deployGovernance(signer);
   const rad = await deployRad(signer);
   const exchange = await deployExchange(rad, signer);
   const ens = (await deployContract(signer, ENSRegistry, [])) as Ens;
@@ -47,7 +59,7 @@ export async function deployAll(
   const ethPool = await deployEthPool(signer, 10);
   const erc20Pool = await deployErc20Pool(signer, 10, rad.address);
 
-  return { rad, exchange, registrar, ens, ethPool, erc20Pool };
+  return { gov, rad, exchange, registrar, ens, ethPool, erc20Pool };
 }
 
 export async function deployRad(signer: ethers.Signer): Promise<Rad> {
@@ -92,6 +104,18 @@ export async function deployRegistrar(
   );
 
   return registrar;
+}
+
+export async function deployGovernance(
+  signer: ethers.Signer
+): Promise<DeployedGovernance> {
+  const signerAddr = await signer.getAddress();
+
+  const timelock = await new Timelock__factory(signer).deploy(signerAddr, 2 * 60 * 60 * 24);
+  const token = await new Token__factory(signer).deploy(signerAddr);
+  const governor = await new Governor__factory(signer).deploy(timelock.address, token.address, signerAddr);
+
+  return { governor, token };
 }
 
 export async function deployExchange(
