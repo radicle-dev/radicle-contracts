@@ -111,9 +111,16 @@ export async function deployGovernance(
 ): Promise<DeployedGovernance> {
   const signerAddr = await signer.getAddress();
 
-  const timelock = await new Timelock__factory(signer).deploy(signerAddr, 2 * 60 * 60 * 24);
+  const timelock = await new Timelock__factory(signer).deploy(
+    signerAddr,
+    2 * 60 * 60 * 24
+  );
   const token = await new Token__factory(signer).deploy(signerAddr);
-  const governor = await new Governor__factory(signer).deploy(timelock.address, token.address, signerAddr);
+  const governor = await new Governor__factory(signer).deploy(
+    timelock.address,
+    token.address,
+    signerAddr
+  );
 
   return { governor, token };
 }
@@ -211,10 +218,12 @@ export async function deployEthPool(
 export async function deployErc20Pool(
   signer: ethers.Signer,
   cycleBlocks: number,
-  erc20TokenAddress: string,
+  erc20TokenAddress: string
 ): Promise<Erc20Pool> {
-  return await new Erc20Pool__factory(signer)
-    .deploy(cycleBlocks, erc20TokenAddress);
+  return await new Erc20Pool__factory(signer).deploy(
+    cycleBlocks,
+    erc20TokenAddress
+  );
 }
 
 async function submitOk(
