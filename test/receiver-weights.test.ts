@@ -355,13 +355,6 @@ describe("ReceiverWeights", function () {
     ]);
   });
 
-  it("Rejects setting weight for address 1", async function () {
-    const weightsTest = await deployReceiverWeightsTest();
-    await expectSetWeightsWithInvalidAddressReverts(weightsTest, [
-      { receiver: numberToAddress(1), weightReceiver: 1, weightProxy: 0 },
-    ]);
-  });
-
   it("Keeps items with only proxy weights set", async function () {
     const weightsTest = await deployReceiverWeightsTest();
     const [addr1] = randomAddresses();
