@@ -10,10 +10,10 @@ import { Ens } from "../contract-bindings/ethers/Ens";
 import { Exchange } from "../contract-bindings/ethers/Exchange";
 import { EthPool } from "../contract-bindings/ethers/EthPool";
 import { Governor } from "../contract-bindings/ethers/Governor";
-import { Token } from "../contract-bindings/ethers/Token";
+import { RadicleToken } from "../contract-bindings/ethers/RadicleToken";
 import {
   Governor__factory,
-  Token__factory,
+  RadicleToken__factory,
   Timelock__factory,
   Rad__factory,
   Exchange__factory,
@@ -34,7 +34,7 @@ import IUniswapV2Pair from "@uniswap/v2-core/build/IUniswapV2Pair.json";
 import ENSRegistry from "@ensdomains/ens/build/contracts/ENSRegistry.json";
 
 export interface DeployedGovernance {
-  token: Token;
+  token: RadicleToken;
   governor: Governor;
 }
 
@@ -115,7 +115,7 @@ export async function deployGovernance(
     signerAddr,
     2 * 60 * 60 * 24
   );
-  const token = await new Token__factory(signer).deploy(signerAddr);
+  const token = await new RadicleToken__factory(signer).deploy(signerAddr);
   const governor = await new Governor__factory(signer).deploy(
     timelock.address,
     token.address,
