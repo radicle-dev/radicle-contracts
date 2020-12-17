@@ -3,7 +3,7 @@ import { assert } from "chai";
 import {
   Proxy__factory,
   DummyUpgradableV1__factory,
-  DummyUpgradableV2__factory
+  DummyUpgradableV2__factory,
 } from "../contract-bindings/ethers";
 import { submit } from "./support";
 
@@ -20,9 +20,12 @@ describe("Proxy", function () {
 
     const proxy = await new Proxy__factory(admin).deploy();
 
-    assert.equal((await proxy.admin()), adminAddr);
-    assert.equal((await proxy.pendingImplementation()), ethers.constants.AddressZero);
-    assert.equal((await proxy.implementation()), ethers.constants.AddressZero);
+    assert.equal(await proxy.admin(), adminAddr);
+    assert.equal(
+      await proxy.pendingImplementation(),
+      ethers.constants.AddressZero
+    );
+    assert.equal(await proxy.implementation(), ethers.constants.AddressZero);
 
     // Create a new instance of the contract, attached to the proxy.
     const impl = contract1.attach(proxy.address);
