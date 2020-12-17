@@ -538,6 +538,8 @@ class Erc20PoolUser extends PoolUser<Erc20Pool> {
 }
 
 describe("EthPool", function () {
+  runCommonPoolTests(getEthPoolUsers);
+
   it("Sends funds from a single sender to a single receiver", async function () {
     const [sender, receiver] = await getEthPoolUsers();
     await sender.topUp(0, 100);
@@ -1260,83 +1262,11 @@ describe("EthPool", function () {
     // Receiver had 5 blocks paying 1 per block
     await receiver.collect(5);
   });
-
-  it("Allows full sender update with top up", async function () {
-    const [sender, proxy, receiver1, receiver2] = await getEthPoolUsers();
-    const proxyWeightBase = sender.proxyWeightsSum;
-    await proxy.setProxyWeights([[receiver2, proxyWeightBase]]);
-    await sender.updateSender(
-      0,
-      proxyWeightBase * 6,
-      proxyWeightBase * 3,
-      [[receiver1, proxyWeightBase]],
-      [[proxy, proxyWeightBase * 2]]
-    );
-    await mineBlocksUntilCycleEnd();
-    await receiver1.collect(proxyWeightBase * 2);
-    await receiver2.collect(proxyWeightBase * 4);
-  });
-
-  it("Allows full sender update with withdrawal", async function () {
-    const [sender, proxy, receiver1, receiver2] = await getEthPoolUsers();
-    const proxyWeightBase = sender.proxyWeightsSum;
-    await proxy.setProxyWeights([[receiver2, proxyWeightBase]]);
-    await sender.topUp(0, proxyWeightBase * 12);
-    await sender.updateSender(
-      proxyWeightBase * 12,
-      proxyWeightBase * 6,
-      proxyWeightBase * 3,
-      [[receiver1, proxyWeightBase]],
-      [[proxy, proxyWeightBase * 2]]
-    );
-    await mineBlocksUntilCycleEnd();
-    await receiver1.collect(proxyWeightBase * 2);
-    await receiver2.collect(proxyWeightBase * 4);
-  });
-
-  it("Allows sender update with top up and withdrawal", async function () {
-    const [sender] = await getEthPoolUsers();
-    await sender.submitChangingBalance(
-      () =>
-        sender.submitUpdateSender(
-          10,
-          3,
-          sender.amountPerBlockUnchanged,
-          [],
-          []
-        ),
-      "updateSender",
-      -7
-    );
-    await sender.expectWithdrawable(7);
-  });
-
-  it("Allows no sender update", async function () {
-    const [sender, proxy, receiver1, receiver2] = await getEthPoolUsers();
-    const proxyWeightBase = sender.proxyWeightsSum;
-    await proxy.setProxyWeights([[receiver2, proxyWeightBase]]);
-    await sender.updateSender(
-      0,
-      proxyWeightBase * 6,
-      proxyWeightBase * 3,
-      [[receiver1, proxyWeightBase]],
-      [[proxy, proxyWeightBase * 2]]
-    );
-    // Sender has sent proxyWeightBase * 3
-    await sender.updateSender(
-      proxyWeightBase * 3,
-      proxyWeightBase * 3,
-      sender.amountPerBlockUnchanged,
-      [],
-      []
-    );
-    await mineBlocksUntilCycleEnd();
-    await receiver1.collect(proxyWeightBase * 2);
-    await receiver2.collect(proxyWeightBase * 4);
-  });
 });
 
 describe("Erc20Pool", function () {
+  runCommonPoolTests(getErc20PoolUsers);
+
   it("Allows withdrawal of funds", async function () {
     const [sender] = await getErc20PoolUsers();
     await sender.topUp(0, 10);
@@ -1351,9 +1281,13 @@ describe("Erc20Pool", function () {
     await mineBlocksUntilCycleEnd();
     await receiver.collect(10);
   });
+});
 
+function runCommonPoolTests(
+  getPoolUsers: () => Promise<PoolUser<AnyPool>[]>
+): void {
   it("Allows full sender update with top up", async function () {
-    const [sender, proxy, receiver1, receiver2] = await getErc20PoolUsers();
+    const [sender, proxy, receiver1, receiver2] = await getPoolUsers();
     const proxyWeightBase = sender.proxyWeightsSum;
     await proxy.setProxyWeights([[receiver2, proxyWeightBase]]);
     await sender.updateSender(
@@ -1369,7 +1303,7 @@ describe("Erc20Pool", function () {
   });
 
   it("Allows full sender update with withdrawal", async function () {
-    const [sender, proxy, receiver1, receiver2] = await getErc20PoolUsers();
+    const [sender, proxy, receiver1, receiver2] = await getPoolUsers();
     const proxyWeightBase = sender.proxyWeightsSum;
     await proxy.setProxyWeights([[receiver2, proxyWeightBase]]);
     await sender.topUp(0, proxyWeightBase * 12);
@@ -1386,7 +1320,7 @@ describe("Erc20Pool", function () {
   });
 
   it("Allows sender update with top up and withdrawal", async function () {
-    const [sender] = await getErc20PoolUsers();
+    const [sender] = await getPoolUsers();
     await sender.submitChangingBalance(
       () =>
         sender.submitUpdateSender(
@@ -1403,7 +1337,7 @@ describe("Erc20Pool", function () {
   });
 
   it("Allows no sender update", async function () {
-    const [sender, proxy, receiver1, receiver2] = await getErc20PoolUsers();
+    const [sender, proxy, receiver1, receiver2] = await getPoolUsers();
     const proxyWeightBase = sender.proxyWeightsSum;
     await proxy.setProxyWeights([[receiver2, proxyWeightBase]]);
     await sender.updateSender(
@@ -1425,4 +1359,4 @@ describe("Erc20Pool", function () {
     await receiver1.collect(proxyWeightBase * 2);
     await receiver2.collect(proxyWeightBase * 4);
   });
-});
+}
