@@ -32,6 +32,8 @@ The sender has a balance, a funding rate, and a set of receivers.
 
 The balance is automatically reduced by the funding rate on every block
 and the same amount is credited to the sender's receivers.
+When the sender's balance reaches an amount lower than the per-block funding rate,
+the funding is stopped.
 This process doesn't actually require updates on every block,
 its effects are calculated on the fly whenever they are needed.
 Thus the contract state is updated only when the funding parameters are altered by the users.
@@ -50,7 +52,8 @@ as a receiver with weight 1, but only half as big as another receiver with weigh
 
 ## The deltas
 
-On every block, a sender sends funds to a receiver.
+On every block funds from the sender’s pool account are credited to the sender’s receivers
+according to the funding rate.
 The receiver can collect funds sent on a given block only when the cycle containing it is over.
 
 ![](how_pool_works_2.png)
@@ -59,11 +62,10 @@ Here, we see the timeline of a receiver who is receiving funds from two senders.
 Each of the senders has sent different amounts over different periods of time.
 At the end of each cycle, the collectable amount was increased by the total sent amount.
 
-Each receiver needs to know, how much was sent to them.
-To accomplish that the history of received funds needs to be stored in some form.
-The receiver doesn't care, who exactly is sending on each block and in what configuration.
-The only thing that matters are the collectable per-cycle values below the timeline.
-This reduces the amount of data stored per receiver significantly, but this is further optimized.
+The receiver needs to know, how much was sent to them on each cycle.
+For every receiver we store the amount of funds received in the last collected cycle.
+In addition we store changes to this value for the following cycles.
+This allows us to calculate the funds that the receiver receives in each not yet collected cycle.
 
 ![](how_pool_works_3.png)
 
@@ -74,13 +76,14 @@ Now we need to describe only cycles when receiving anything.
 The senders usually are sending constant per-cycle amounts over long periods of time, so
 the added values tend to create long series of constant numbers, in this case, 5s.
 We exploit that and finally turn them into **deltas** relative to the previous cycles.
-Now we need to store data only for cycles where the sending rate changes, it's very cheap.
+Now we need to store data only for cycles where the funding rate changes, it's very cheap.
 This is what the contract actually stores: a mapping from cycle numbers to deltas.
 
 ## Starting sending
 
-When the sender has a sufficient balance, a sending rate and a list of receivers,
-the flow of assets automatically starts.
+In order to start sending, the sender needs to have a non-zero funding rate,
+a balance of at least the said funding rate and a non-empty list of receivers.
+As soon as the sender is updated to match these criteria, the flow of assets starts.
 First, the funding period is calculated.
 Its start is the current block and its end is the block on which the balance will run out.
 Next, for each receiver, the weighted share of the funding rate is calculated.
@@ -104,6 +107,10 @@ The current cycle isn't fully affected though, only 2 out of 5 blocks are sendin
 It's effectively going to transfer only the amount of 2, which is reflected in the +2 delta change.
 On the other hand, the next cycle and the ones after it are going to transfer the full 5.
 This is expressed with the +3 delta change, which turns 2 per cycle into the full 5 per cycle.
+
+A similar logic is applied to express the end of the funding period.
+The cycle in which funding runs out has 1 transferring block resulting in delta being -4.
+The following cycle doesn't transfer any funds and has delta -1 to complete zeroing of the rate.
 
 ## Stopping sending
 
@@ -143,7 +150,7 @@ The collected amount is always everything available at a given moment, there's n
 
 As shown in the previous sections, the collectable amount is described with deltas, one per cycle.
 The receiver stores the number of the first cycle, for which the funds haven't been collected yet.
-This prevents collecting the same funds multiple times, every cycle can be ever processed only once.
+This assures that funds can be collected only once.
 The receiver also stores the amount, which was collected for the last collected cycle.
 This value is set to 0 if this is the first collection of the receiver.
 It's the initial value to which the deltas are added.
@@ -162,6 +169,9 @@ The yellow fields are the stored state before the collection, green after it.
 The blue field is the collected value, which is going to be transferred to the sender's wallet.
 
 # The proxy
+
+Multiple senders can send funds to a proxy and the owner
+controls how these funds are further distributed to receivers.
 
 The proxy is configured only with a list of receivers with an associated weight.
 The sum of the receivers' weights must always be a constant value,
@@ -198,15 +208,15 @@ All the deltas are once again applied, but with negative values.
 When the list of proxy receivers is updated, all funding must be moved to a new set of receivers.
 That's when the proxy's deltas come useful.
 For each cycle and each receiver, the proxy can tell the total delta it has applied.
-It can then use this information to erase its influence from its receivers.
+It can then use this information to erase its future contributions from its receivers.
 
 ![](how_pool_works_8.png)
 
 In this example, the receiver's weight is 3.
-To erase the influence, the proxy's deltas are multiplied by
+To erase the future contribution, the proxy's deltas are multiplied by
 the receiver's weights and subtracted from the corresponding receiver's deltas.
 
-After removing its influence from one set of receivers the proxy must reapply itself on a new set.
+After removing its contributions from one set of receivers the proxy must reapply them on a new set.
 This is done in the same way as removal, but this time the deltas are added and not subtracted.
 
 ### The current cycle problem
@@ -220,6 +230,6 @@ because some funds were sent before the current block and some will be sent afte
 
 The solution is to ignore the problem and move the whole current cycle delta.
 Some funds already sent in the current cycle may disappear from one receiver and appear in another.
-Such behaviour, however, is not of significant importance since
+Such behavior, however, is not of significant importance since
 the receivers have no access to funds coming from an unfinished cycle.
 The senders aren't strongly affected either, they already sent these funds and they trust the proxy.
