@@ -24,7 +24,7 @@ equal length so that every block belongs to a cycle.
 Cycles are numbered starting with zero.
 In the examples below, we assume that the cycle length is 5.
 
-![](how_pool_works_1.png)
+![](how_the_pool_works_1.png)
 
 # The sender
 
@@ -56,7 +56,7 @@ On every block funds from the sender’s pool account are credited to the sender
 according to the funding rate.
 The receiver can collect funds sent on a given block only when the cycle containing it is over.
 
-![](how_pool_works_2.png)
+![](how_the_pool_works_2.png)
 
 Here, we see the timeline of a receiver who is receiving funds from two senders.
 Each of the senders has sent different amounts over different periods of time.
@@ -67,7 +67,7 @@ For every receiver we store the amount of funds received in the last collected c
 In addition we store changes to this value for the following cycles.
 This allows us to calculate the funds that the receiver receives in each not yet collected cycle.
 
-![](how_pool_works_3.png)
+![](how_the_pool_works_3.png)
 
 In this example, we start with having the raw **collectable** value of 23 for every block until
 the end of time.
@@ -93,7 +93,7 @@ it's going to receive the calculated amount.
 Let's take a look at an example of an application of a delta.
 The sender will be sending 1 per block or 5 per cycle.
 
-![](how_pool_works_4.png)
+![](how_the_pool_works_4.png)
 
 The deltas are applied relative to the existing values.
 It doesn't matter if anybody else is funding the receiver, it won't affect this sender.
@@ -128,7 +128,7 @@ In the latter case sending is stopped only to be immediately resumed, but with d
 Either way, the effects of the sender on the receiver's deltas need to be reverted
 from the current block to the end of the existing funding period.
 
-![](how_pool_works_5.png)
+![](how_the_pool_works_5.png)
 
 The old funding end deltas are reverted because they don't reflect the real funding end anymore.
 On the other hand, a new end is applied to the current block,
@@ -162,7 +162,7 @@ This reconstructs the amount sent from all the senders during each cycle.
 These amounts are then added up and the result is the total collected amount.
 Finally, the next uncollected cycle number and the last cycle amount are updated.
 
-![](how_pool_works_6.png)
+![](how_the_pool_works_6.png)
 
 In this example funds received from 4 cycles are being collected.
 The yellow fields are the stored state before the collection, green after it.
@@ -195,7 +195,7 @@ The proxy has 2 receivers: A with weight 3 and B with weight 2.
 The sender wants to start sending via the proxy 2 per block or 10 per cycle.
 It's 2 per cycle per proxy weight.
 
-![](how_pool_works_7.png)
+![](how_the_pool_works_7.png)
 
 The proxy's deltas store amount per 1 proxy weight, which is 2.
 The receivers get their shares, A with weight 3 gets 6 and B with weight 2 gets 4 per cycle.
@@ -210,7 +210,7 @@ That's when the proxy's deltas come useful.
 For each cycle and each receiver, the proxy can tell the total delta it has applied.
 It can then use this information to erase its future contributions from its receivers.
 
-![](how_pool_works_8.png)
+![](how_the_pool_works_8.png)
 
 In this example, the receiver's weight is 3.
 To erase the future contribution, the proxy's deltas are multiplied by
@@ -226,7 +226,7 @@ When changing the set of receivers, a delta describing the current cycle may nee
 When it happens, it's unclear what part of the per-cycle delta should be moved,
 because some funds were sent before the current block and some will be sent after it.
 
-![](how_pool_works_9.png)
+![](how_the_pool_works_9.png)
 
 The solution is to ignore the problem and move the whole current cycle delta.
 Some funds already sent in the current cycle may disappear from one receiver and appear in another.

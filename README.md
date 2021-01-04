@@ -2,7 +2,7 @@
 
 See [`DEVELOPING.md`](./DEVELOPING.md) for the developer manual.
 
-See [`how_pool_works.md`](./docs/how_pool_works.md) for the introduction to
+See [`how_the_pool_works.md`](./docs/how_the_pool_works.md) for the introduction to
 how the funding pool contract works.
 
 ## Installation
