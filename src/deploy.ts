@@ -6,7 +6,7 @@ import * as abi from "@ethersproject/abi";
 
 import { Registrar } from "../contract-bindings/ethers/Registrar";
 import { Rad } from "../contract-bindings/ethers/Rad";
-import { Ens } from "../contract-bindings/ethers/Ens";
+import { ENS } from "../contract-bindings/ethers/ENS";
 import { Exchange } from "../contract-bindings/ethers/Exchange";
 import { EthPool } from "../contract-bindings/ethers/EthPool";
 import { Governor } from "../contract-bindings/ethers/Governor";
@@ -43,7 +43,7 @@ export interface DeployedContracts {
   rad: Rad;
   registrar: Registrar;
   exchange: Exchange;
-  ens: Ens;
+  ens: ENS;
   ethPool: EthPool;
   erc20Pool: Erc20Pool;
 }
@@ -54,7 +54,7 @@ export async function deployAll(
   const gov = await deployGovernance(signer);
   const rad = await deployRad(signer);
   const exchange = await deployExchange(rad, signer);
-  const ens = (await deployContract(signer, ENSRegistry, [])) as Ens;
+  const ens = (await deployContract(signer, ENSRegistry, [])) as ENS;
   const registrar = await deployRegistrar(exchange, ens, signer);
   const ethPool = await deployEthPool(signer, 10);
   const erc20Pool = await deployErc20Pool(signer, 10, rad.address);
@@ -74,7 +74,7 @@ export async function deployRad(signer: ethers.Signer): Promise<Rad> {
 
 export async function deployRegistrar(
   exchange: Exchange,
-  ens: Ens,
+  ens: ENS,
   signer: ethers.Signer
 ): Promise<Registrar> {
   const signerAddr = await signer.getAddress();

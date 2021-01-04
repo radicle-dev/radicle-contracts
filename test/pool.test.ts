@@ -3,7 +3,7 @@ import {
   EthPool__factory,
   Rad__factory,
 } from "../contract-bindings/ethers";
-import { Erc20 } from "../contract-bindings/ethers/Erc20";
+import { ERC20 } from "../contract-bindings/ethers/ERC20";
 import { Erc20Pool } from "../contract-bindings/ethers/Erc20Pool";
 import { EthPool } from "../contract-bindings/ethers/EthPool";
 import { ethers } from "hardhat";
@@ -488,13 +488,13 @@ async function getErc20PoolUsers(): Promise<Erc20PoolUser[]> {
 }
 
 class Erc20PoolUser extends PoolUser<Erc20Pool> {
-  erc20: Erc20;
+  erc20: ERC20;
 
   constructor(
     pool: Erc20Pool,
     userAddr: string,
     constants: PoolConstants,
-    erc20: Erc20
+    erc20: ERC20
   ) {
     super(pool, userAddr, constants);
     this.erc20 = erc20;
@@ -502,7 +502,7 @@ class Erc20PoolUser extends PoolUser<Erc20Pool> {
 
   static async new(
     pool: Erc20Pool,
-    erc20: Erc20,
+    erc20: ERC20,
     signer: Signer,
     constants: PoolConstants
   ): Promise<Erc20PoolUser> {
