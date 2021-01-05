@@ -10,6 +10,7 @@ import { ethers } from "hardhat";
 import { Signer, BigNumber, ContractTransaction, BigNumberish } from "ethers";
 import { expect } from "chai";
 import {
+  expectBigNumberEq,
   randomAddress,
   mineBlocks,
   callOnNextBlock,
@@ -122,11 +123,9 @@ abstract class PoolUser<Pool extends AnyPool> {
 
   abstract getBalance(): Promise<BigNumber>;
 
-  abstract submitTopUp(amount: number): Promise<ContractTransaction>;
-
   abstract submitUpdateSender(
-    topUp: number,
-    withdraw: number,
+    topUp: BigNumberish,
+    withdraw: BigNumberish,
     amountPerBlock: BigNumberish,
     setReceivers: ReceiverWeightsAddr,
     setProxies: ReceiverWeightsAddr
@@ -143,15 +142,15 @@ abstract class PoolUser<Pool extends AnyPool> {
   }
 
   async updateSender(
-    balanceFrom: number,
-    balanceTo: number,
+    balanceFrom: BigNumberish,
+    balanceTo: BigNumberish,
     amountPerBlock: BigNumberish,
     setReceivers: ReceiverWeights,
     setProxies: ReceiverWeights
   ): Promise<void> {
-    const balanceDelta = balanceTo - balanceFrom;
-    const topUp = balanceDelta > 0 ? balanceDelta : 0;
-    const withdraw = balanceDelta < 0 ? -balanceDelta : 0;
+    const balanceDelta = BigNumber.from(balanceFrom).sub(balanceTo);
+    const topUp = balanceDelta.lt(0) ? balanceDelta.abs() : 0;
+    const withdraw = balanceDelta.gt(0) ? balanceDelta : 0;
     const expectedAmountPerBlock = await this.expectedAmountPerBlock(
       amountPerBlock
     );
@@ -173,7 +172,7 @@ abstract class PoolUser<Pool extends AnyPool> {
           proxiesAddr
         ),
       "updateSender",
-      -balanceDelta
+      balanceDelta
     );
 
     await this.expectWithdrawable(balanceTo);
@@ -181,47 +180,84 @@ abstract class PoolUser<Pool extends AnyPool> {
     await this.expectReceivers(expectedReceivers);
   }
 
-  async topUp(amountFrom: number, amountTo: number): Promise<void> {
-    await this.expectWithdrawableOnNextBlock(amountFrom);
-    const amount = amountTo - amountFrom;
-    await this.submitChangingBalance(
-      () => this.submitTopUp(amount),
-      "topUp",
-      -amount
+  async updateSenderBalanceUnchanged(
+    amountPerBlock: BigNumberish,
+    setReceivers: ReceiverWeights,
+    setProxies: ReceiverWeights
+  ): Promise<void> {
+    const balance = await callOnNextBlock(() => this.pool.withdrawable());
+    await this.updateSender(
+      balance,
+      balance,
+      amountPerBlock,
+      setReceivers,
+      setProxies
     );
-    await this.expectWithdrawable(amountTo);
   }
 
-  async withdraw(amountFrom: number, amountTo: number): Promise<void> {
-    await this.expectWithdrawableOnNextBlock(amountFrom);
-    const amount = amountFrom - amountTo;
-    await this.submitChangingBalance(
-      () => this.pool.withdraw(amount, { gasPrice: 0 }),
-      "withdraw",
-      amount
+  async expectUpdateSenderBalanceUnchangedReverts(
+    amountPerBlock: BigNumberish,
+    setReceivers: ReceiverWeights,
+    setProxies: ReceiverWeights,
+    expectedCause: string
+  ): Promise<void> {
+    await submitFailing(
+      this.submitUpdateSender(
+        0,
+        0,
+        amountPerBlock,
+        receiverWeightsAddr(setReceivers),
+        receiverWeightsAddr(setProxies)
+      ),
+      "updateSender",
+      expectedCause
     );
-    await this.expectWithdrawable(amountTo);
+  }
+
+  async topUp(
+    balanceFrom: BigNumberish,
+    balanceTo: BigNumberish
+  ): Promise<void> {
+    await this.updateSender(
+      balanceFrom,
+      balanceTo,
+      this.amountPerBlockUnchanged,
+      [],
+      []
+    );
+  }
+
+  async withdraw(
+    balanceFrom: BigNumberish,
+    balanceTo: BigNumberish
+  ): Promise<void> {
+    await this.updateSender(
+      balanceFrom,
+      balanceTo,
+      this.amountPerBlockUnchanged,
+      [],
+      []
+    );
   }
 
   async submitChangingBalance(
     fn: () => Promise<ContractTransaction>,
     txName: string,
-    balanceChangeExpected: number
+    balanceChangeExpected: BigNumberish
   ): Promise<void> {
     const balanceBefore = await this.getBalance();
     await submit(fn(), txName);
     const balanceAfter = await this.getBalance();
-    const balanceChangeActual = balanceAfter.sub(balanceBefore).toNumber();
-    expect(balanceChangeActual).to.equal(
+    const balanceChangeActual = balanceAfter.sub(balanceBefore);
+    expectBigNumberEq(
+      balanceChangeActual,
       balanceChangeExpected,
       "Unexpected balance change from call to " + txName
     );
   }
 
   async setAmountPerBlock(amount: BigNumberish): Promise<void> {
-    const expectedAmountPerBlock = await this.expectedAmountPerBlock(amount);
-    await submit(this.pool.setAmountPerBlock(amount), "setAmountPerBlock");
-    await this.expectAmountPerBlock(expectedAmountPerBlock);
+    await this.updateSenderBalanceUnchanged(amount, [], []);
   }
 
   async getAmountPerBlock(): Promise<number> {
@@ -232,26 +268,19 @@ abstract class PoolUser<Pool extends AnyPool> {
     receivers: ReceiverWeights,
     proxies: ReceiverWeights
   ): Promise<void> {
-    const receiversAddr = receiverWeightsAddr(receivers);
-    const proxiesAddr = receiverWeightsAddr(proxies);
-    const expectedReceivers = await this.expectedReceivers(
-      receiversAddr,
-      proxiesAddr
+    await this.updateSenderBalanceUnchanged(
+      this.amountPerBlockUnchanged,
+      receivers,
+      proxies
     );
-    await submit(
-      this.pool.setReceivers(receiversAddr, proxiesAddr),
-      "setReceivers"
-    );
-    await this.expectReceivers(expectedReceivers);
   }
 
   async setReceiver(receiver: this, weight: number): Promise<void> {
-    const expectedReceivers = await this.expectedReceivers(
-      receiverWeightsAddr([[receiver, weight]]),
+    await this.updateSenderBalanceUnchanged(
+      this.amountPerBlockUnchanged,
+      [[receiver, weight]],
       []
     );
-    await submit(this.pool.setReceiver(receiver.addr, weight), "setReceiver");
-    await this.expectReceivers(expectedReceivers);
   }
 
   async expectSetReceiverReverts(
@@ -259,20 +288,20 @@ abstract class PoolUser<Pool extends AnyPool> {
     weight: number,
     expectedCause: string
   ): Promise<void> {
-    await submitFailing(
-      this.pool.setReceiver(receiver.addr, weight),
-      "setReceiver",
+    await this.expectUpdateSenderBalanceUnchangedReverts(
+      this.amountPerBlockUnchanged,
+      [[receiver, weight]],
+      [],
       expectedCause
     );
   }
 
   async setProxy(receiver: this, weight: number): Promise<void> {
-    const expectedReceivers = await this.expectedReceivers(
+    await this.updateSenderBalanceUnchanged(
+      this.amountPerBlockUnchanged,
       [],
-      receiverWeightsAddr([[receiver, weight]])
+      [[receiver, weight]]
     );
-    await submit(this.pool.setProxy(receiver.addr, weight), "setProxy");
-    await this.expectReceivers(expectedReceivers);
   }
 
   async expectSetProxyReverts(
@@ -280,9 +309,10 @@ abstract class PoolUser<Pool extends AnyPool> {
     weight: number,
     expectedCause: string
   ): Promise<void> {
-    await submitFailing(
-      this.pool.setProxy(receiver.addr, weight),
-      "setProxy",
+    await this.expectUpdateSenderBalanceUnchangedReverts(
+      this.amountPerBlockUnchanged,
+      [],
+      [[receiver, weight]],
       expectedCause
     );
   }
@@ -342,17 +372,18 @@ abstract class PoolUser<Pool extends AnyPool> {
     );
   }
 
-  async expectWithdrawableOnNextBlock(amount: number): Promise<void> {
+  async expectWithdrawableOnNextBlock(amount: BigNumberish): Promise<void> {
     await callOnNextBlock(async () => {
       await this.expectWithdrawable(amount);
     });
   }
 
-  async expectWithdrawable(amount: number): Promise<void> {
-    const withdrawable = (await this.pool.withdrawable()).toNumber();
-    expect(withdrawable).to.equal(
+  async expectWithdrawable(amount: BigNumberish): Promise<void> {
+    const withdrawable = await this.pool.withdrawable();
+    expectBigNumberEq(
+      withdrawable,
       amount,
-      "The withdrawable amount is different from the expected amount"
+      "The withdrawable amount is invalid"
     );
   }
 
@@ -435,13 +466,9 @@ class EthPoolUser extends PoolUser<EthPool> {
     return await this.pool.signer.getBalance();
   }
 
-  async submitTopUp(amount: number): Promise<ContractTransaction> {
-    return this.pool.topUp({ value: amount, gasPrice: 0 });
-  }
-
   submitUpdateSender(
-    topUp: number,
-    withdraw: number,
+    topUp: BigNumberish,
+    withdraw: BigNumberish,
     amountPerBlock: BigNumberish,
     setReceivers: ReceiverWeightsAddr,
     setProxies: ReceiverWeightsAddr
@@ -516,13 +543,9 @@ class Erc20PoolUser extends PoolUser<Erc20Pool> {
     return await this.erc20.balanceOf(this.addr);
   }
 
-  async submitTopUp(amount: number): Promise<ContractTransaction> {
-    return this.pool.topUp(amount);
-  }
-
   submitUpdateSender(
-    topUp: number,
-    withdraw: number,
+    topUp: BigNumberish,
+    withdraw: BigNumberish,
     amountPerBlock: BigNumberish,
     setReceivers: ReceiverWeightsAddr,
     setProxies: ReceiverWeightsAddr
@@ -542,9 +565,7 @@ describe("EthPool", function () {
 
   it("Sends funds from a single sender to a single receiver", async function () {
     const [sender, receiver] = await getEthPoolUsers();
-    await sender.topUp(0, 100);
-    await sender.setAmountPerBlock(1);
-    await sender.setReceiver(receiver, 1);
+    await sender.updateSender(0, 100, 1, [[receiver, 1]], []);
     await mineBlocks(15);
     // Sender had 16 blocks paying 1 per block
     await sender.withdraw(84, 0);
@@ -555,28 +576,30 @@ describe("EthPool", function () {
 
   it("Sends some funds from a single sender to two receivers", async function () {
     const [sender, receiver1, receiver2] = await getEthPoolUsers();
-    await sender.topUp(0, 100);
-    await sender.setAmountPerBlock(2);
-    await sender.setReceiver(receiver1, 1);
-    await sender.setReceiver(receiver2, 1);
+    await sender.updateSender(
+      0,
+      100,
+      2,
+      [
+        [receiver1, 1],
+        [receiver2, 1],
+      ],
+      []
+    );
     await mineBlocks(13);
-    // Sender had 15 blocks paying 2 per block
-    await sender.withdraw(70, 0);
+    // Sender had 14 blocks paying 2 per block
+    await sender.withdraw(72, 0);
     await mineBlocksUntilCycleEnd();
-    // Receiver 1 had 1 block paying 2 per block and 14 blocks paying 1 per block
-    await receiver1.collect(16);
+    // Receiver 1 had 14 blocks paying 1 per block
+    await receiver1.collect(14);
     // Receiver 2 had 14 blocks paying 1 per block
     await receiver2.collect(14);
   });
 
   it("Sends some funds from a two senders to a single receiver", async function () {
     const [sender1, sender2, receiver] = await getEthPoolUsers();
-    await sender1.topUp(0, 100);
-    await sender1.setAmountPerBlock(1);
-    await sender2.topUp(0, 100);
-    await sender2.setAmountPerBlock(2);
-    await sender1.setReceiver(receiver, 1);
-    await sender2.setReceiver(receiver, 1);
+    await sender1.updateSender(0, 100, 1, [[receiver, 1]], []);
+    await sender2.updateSender(0, 100, 2, [[receiver, 1]], []);
     await mineBlocks(14);
     // Sender2 had 15 blocks paying 2 per block
     await sender2.withdraw(70, 0);
@@ -594,8 +617,7 @@ describe("EthPool", function () {
 
   it("Allows collecting funds while they are being sent", async function () {
     const [sender, receiver] = await getEthPoolUsers();
-    await sender.topUp(0, CYCLE_BLOCKS + 10);
-    await sender.setAmountPerBlock(1);
+    await sender.updateSender(0, CYCLE_BLOCKS + 10, 1, [], []);
     await mineBlocksUntilCycleEnd();
     await sender.setReceiver(receiver, 1);
     await mineBlocksUntilCycleEnd();
@@ -611,9 +633,7 @@ describe("EthPool", function () {
 
   it("Sends funds until they run out", async function () {
     const [sender, receiver] = await getEthPoolUsers();
-    await sender.topUp(0, 100);
-    await sender.setAmountPerBlock(9);
-    await sender.setReceiver(receiver, 1);
+    await sender.updateSender(0, 100, 9, [[receiver, 1]], []);
     await mineBlocks(9);
     // Sender had 10 blocks paying 9 per block, funds are about to run out
     await sender.expectWithdrawableOnNextBlock(10);
@@ -628,9 +648,7 @@ describe("EthPool", function () {
 
   it("Allows topping up while sending", async function () {
     const [sender, receiver] = await getEthPoolUsers();
-    await sender.topUp(0, 100);
-    await sender.setAmountPerBlock(10);
-    await sender.setReceiver(receiver, 1);
+    await sender.updateSender(0, 100, 10, [[receiver, 1]], []);
     await mineBlocks(5);
     // Sender had 6 blocks paying 10 per block
     await sender.topUp(40, 60);
@@ -644,9 +662,7 @@ describe("EthPool", function () {
 
   it("Allows topping up after funds run out", async function () {
     const [sender, receiver] = await getEthPoolUsers();
-    await sender.topUp(0, 100);
-    await sender.setAmountPerBlock(10);
-    await sender.setReceiver(receiver, 1);
+    await sender.updateSender(0, 100, 10, [[receiver, 1]], []);
     await mineBlocks(20);
     // Sender had 10 blocks paying 10 per block
     await sender.expectWithdrawable(0);
@@ -671,18 +687,10 @@ describe("EthPool", function () {
   it("Allows sending, which should end after block number 2^64", async function () {
     const [sender, receiver] = await getEthPoolUsers();
     const toppedUp = BigNumber.from(2).pow(64).add(5);
-    await sender.pool.topUp({ value: toppedUp });
-    const withdrawable = await sender.pool.withdrawable();
-    expect(withdrawable.toString()).to.equal(
-      toppedUp.toString(),
-      "The withdrawable amount is different from the expected amount"
-    );
-    await sender.setAmountPerBlock(1);
-    await sender.setReceiver(receiver, 1);
+    await sender.updateSender(0, toppedUp, 1, [[receiver, 1]], []);
     await mineBlocks(9);
     // Sender had 10 blocks paying 1 per block
-    await sender.pool.withdraw(toppedUp.sub(10));
-    await sender.expectWithdrawable(0);
+    await sender.withdraw(toppedUp.sub(10), 0);
     await mineBlocksUntilCycleEnd();
     // Receiver had 10 blocks paying 1 per block
     await receiver.collect(10);
@@ -690,9 +698,7 @@ describe("EthPool", function () {
 
   it("Allows changing amount per block while sending", async function () {
     const [sender, receiver] = await getEthPoolUsers();
-    await sender.topUp(0, 100);
-    await sender.setAmountPerBlock(10);
-    await sender.setReceiver(receiver, 1);
+    await sender.updateSender(0, 100, 10, [[receiver, 1]], []);
     await mineBlocks(3);
     await sender.setAmountPerBlock(9);
     await mineBlocks(3);
@@ -705,9 +711,7 @@ describe("EthPool", function () {
 
   it("Sends amount per block rounded down to a multiple of weights sum", async function () {
     const [sender, receiver] = await getEthPoolUsers();
-    await sender.topUp(0, 100);
-    await sender.setAmountPerBlock(9);
-    await sender.setReceiver(receiver, 5);
+    await sender.updateSender(0, 100, 9, [[receiver, 5]], []);
     await mineBlocks(4);
     // Sender had 5 blocks paying 5 per block
     await sender.withdraw(75, 0);
@@ -718,9 +722,7 @@ describe("EthPool", function () {
 
   it("Sends nothing if amount per block is smaller than weights sum", async function () {
     const [sender, receiver] = await getEthPoolUsers();
-    await sender.topUp(0, 100);
-    await sender.setAmountPerBlock(4);
-    await sender.setReceiver(receiver, 5);
+    await sender.updateSender(0, 100, 4, [[receiver, 5]], []);
     await mineBlocks(4);
     // Sender had no paying blocks
     await sender.withdraw(100, 0);
@@ -731,11 +733,17 @@ describe("EthPool", function () {
 
   it("Allows removing the last receiver weight when amount per block is zero", async function () {
     const [sender, receiver1, receiver2] = await getEthPoolUsers();
-    await sender.topUp(0, 100);
-    await sender.setReceiver(receiver1, 1);
-    await sender.setReceiver(receiver2, 1);
-    await sender.setReceiver(receiver2, 0);
-    await sender.setAmountPerBlock(12);
+    await sender.updateSender(
+      0,
+      100,
+      12,
+      [
+        [receiver1, 1],
+        [receiver2, 1],
+        [receiver2, 0],
+      ],
+      []
+    );
     // Sender had 1 blocks paying 12 per block
     await sender.withdraw(88, 0);
     await mineBlocksUntilCycleEnd();
@@ -747,10 +755,16 @@ describe("EthPool", function () {
 
   it("Allows changing receiver weights while sending", async function () {
     const [sender, receiver1, receiver2] = await getEthPoolUsers();
-    await sender.topUp(0, 100);
-    await sender.setReceiver(receiver1, 1);
-    await sender.setReceiver(receiver2, 1);
-    await sender.setAmountPerBlock(12);
+    await sender.updateSender(
+      0,
+      100,
+      12,
+      [
+        [receiver1, 1],
+        [receiver2, 1],
+      ],
+      []
+    );
     await mineBlocks(2);
     await sender.setReceiver(receiver2, 2);
     await mineBlocks(3);
@@ -765,10 +779,16 @@ describe("EthPool", function () {
 
   it("Allows removing receivers while sending", async function () {
     const [sender, receiver1, receiver2] = await getEthPoolUsers();
-    await sender.topUp(0, 100);
-    await sender.setReceiver(receiver1, 1);
-    await sender.setReceiver(receiver2, 1);
-    await sender.setAmountPerBlock(10);
+    await sender.updateSender(
+      0,
+      100,
+      10,
+      [
+        [receiver1, 1],
+        [receiver2, 1],
+      ],
+      []
+    );
     await mineBlocks(2);
     await sender.setReceiver(receiver1, 0);
     await mineBlocks(3);
@@ -805,10 +825,19 @@ describe("EthPool", function () {
 
   it("Limits the total receivers count", async function () {
     const [sender, receiver] = await getEthPoolUsers();
-    for (let i = 0; i < sender.senderWeightsCountMax; i++) {
-      // This is much faster than using the `setReceiver()` test utility
-      await sender.pool.setReceiver(randomAddress(), 1);
-    }
+    const receivers = new Array(sender.senderWeightsCountMax)
+      .fill(0)
+      .map(() => ({ receiver: randomAddress(), weight: 1 }));
+    await submit(
+      sender.submitUpdateSender(
+        0,
+        0,
+        sender.amountPerBlockUnchanged,
+        receivers,
+        []
+      ),
+      "updateSender"
+    );
     await sender.expectSetReceiverReverts(receiver, 1, "Too many receivers");
   });
 
@@ -837,22 +866,17 @@ describe("EthPool", function () {
     );
   });
 
-  it("Allows batch setting no receivers and no proxies", async function () {
-    const [sender, receiver, proxy] = await getEthPoolUsers();
-    const proxyWeightBase = sender.proxyWeightsSum;
-    await proxy.setProxyWeights([[receiver, proxyWeightBase]]);
-    await sender.setReceiver(receiver, 1);
-    await sender.setProxy(proxy, proxyWeightBase);
-    await sender.setReceivers([], []);
-  });
-
   it("Allows sending via a proxy", async function () {
     const [sender, proxy, receiver] = await getEthPoolUsers();
     const proxyWeightBase = sender.proxyWeightsSum;
     await proxy.setProxyWeights([[receiver, proxyWeightBase]]);
-    await sender.setProxy(proxy, proxyWeightBase);
-    await sender.setAmountPerBlock(proxyWeightBase * 2);
-    await sender.topUp(0, proxyWeightBase * 2);
+    await sender.updateSender(
+      0,
+      proxyWeightBase * 2,
+      proxyWeightBase * 2,
+      [],
+      [[proxy, proxyWeightBase]]
+    );
     await mineBlocksUntilCycleEnd();
     await receiver.collect(proxyWeightBase * 2);
   });
@@ -873,11 +897,16 @@ describe("EthPool", function () {
       [receiver2, proxyWeightBase * 0.25],
     ]);
     await proxy2.setProxyWeights([[receiver3, proxyWeightBase]]);
-    await sender.setProxy(proxy1, proxyWeightBase);
-    await sender.setProxy(proxy2, proxyWeightBase * 2);
-    await sender.setReceiver(receiver4, proxyWeightBase);
-    await sender.setAmountPerBlock(proxyWeightBase * 4);
-    await sender.topUp(0, proxyWeightBase * 8);
+    await sender.updateSender(
+      0,
+      proxyWeightBase * 8,
+      proxyWeightBase * 4,
+      [[receiver4, proxyWeightBase]],
+      [
+        [proxy1, proxyWeightBase],
+        [proxy2, proxyWeightBase * 2],
+      ]
+    );
     await mineBlocksUntilCycleEnd();
     await receiver1.collect(proxyWeightBase * 1.5);
     await receiver2.collect(proxyWeightBase * 0.5);
@@ -889,12 +918,20 @@ describe("EthPool", function () {
     const [sender1, sender2, proxy, receiver] = await getEthPoolUsers();
     const proxyWeightBase = sender1.proxyWeightsSum;
     await proxy.setProxyWeights([[receiver, proxyWeightBase]]);
-    await sender1.setProxy(proxy, proxyWeightBase);
-    await sender1.setAmountPerBlock(proxyWeightBase);
-    await sender2.setProxy(proxy, proxyWeightBase);
-    await sender2.setAmountPerBlock(proxyWeightBase);
-    await sender1.topUp(0, proxyWeightBase * 10);
-    await sender2.topUp(0, proxyWeightBase * 10);
+    await sender1.updateSender(
+      0,
+      proxyWeightBase * 10,
+      proxyWeightBase,
+      [],
+      [[proxy, proxyWeightBase]]
+    );
+    await sender2.updateSender(
+      0,
+      proxyWeightBase * 10,
+      proxyWeightBase,
+      [],
+      [[proxy, proxyWeightBase]]
+    );
     await mineBlocks(9);
     await mineBlocksUntilCycleEnd();
     await receiver.collect(proxyWeightBase * 20);
@@ -904,9 +941,13 @@ describe("EthPool", function () {
     const [sender, proxy, receiver1, receiver2] = await getEthPoolUsers();
     const proxyWeightBase = sender.proxyWeightsSum;
     await proxy.setProxyWeights([[receiver1, proxyWeightBase]]);
-    await sender.setProxy(proxy, proxyWeightBase);
-    await sender.setAmountPerBlock(proxyWeightBase * 2);
-    await sender.topUp(0, proxyWeightBase * 20);
+    await sender.updateSender(
+      0,
+      proxyWeightBase * 20,
+      proxyWeightBase * 2,
+      [],
+      [[proxy, proxyWeightBase]]
+    );
     await mineBlocks(4);
     await sender.setReceiver(receiver2, proxyWeightBase);
     await mineBlocks(3);
@@ -936,9 +977,13 @@ describe("EthPool", function () {
       [receiver3, proxyWeightBase * 0.25],
       [receiver4, proxyWeightBase * 0.25],
     ]);
-    await sender.setProxy(proxy, proxyWeightBase);
-    await sender.setAmountPerBlock(proxyWeightBase);
-    await sender.topUp(0, proxyWeightBase);
+    await sender.updateSender(
+      0,
+      proxyWeightBase,
+      proxyWeightBase,
+      [],
+      [[proxy, proxyWeightBase]]
+    );
     await mineBlocksUntilCycleEnd();
     await receiver1.collect(proxyWeightBase * 0.5);
     await receiver2.expectCollectable(0);
@@ -960,8 +1005,13 @@ describe("EthPool", function () {
       [receiver1, proxyWeightBase * 0.5],
       [receiver2, proxyWeightBase * 0.5],
     ]);
-    await sender.setProxy(proxy, proxyWeightBase);
-    await sender.setAmountPerBlock(proxyWeightBase);
+    await sender.updateSender(
+      0,
+      0,
+      proxyWeightBase,
+      [],
+      [[proxy, proxyWeightBase]]
+    );
     // Sending spans for two cycles
     await mineBlocksUntilCycleEnd();
     await mineBlocks(CYCLE_BLOCKS / 2);
@@ -996,8 +1046,13 @@ describe("EthPool", function () {
       [receiver1, proxyWeightBase * 0.5],
       [receiver2, proxyWeightBase * 0.5],
     ]);
-    await sender.setProxy(proxy, proxyWeightBase);
-    await sender.setAmountPerBlock(proxyWeightBase);
+    await sender.updateSender(
+      0,
+      0,
+      proxyWeightBase,
+      [],
+      [[proxy, proxyWeightBase]]
+    );
     // Sending spans for three cycles
     await mineBlocksUntilCycleEnd();
     const thirdCycleBlocks = CYCLE_BLOCKS / 2;
@@ -1040,8 +1095,13 @@ describe("EthPool", function () {
       [receiver1, proxyWeightBase * 0.5],
       [receiver2, proxyWeightBase * 0.5],
     ]);
-    await sender.setProxy(proxy, proxyWeightBase);
-    await sender.setAmountPerBlock(proxyWeightBase);
+    await sender.updateSender(
+      0,
+      0,
+      proxyWeightBase,
+      [],
+      [[proxy, proxyWeightBase]]
+    );
     // Sending spans for two cycles
     await mineBlocksUntilCycleEnd();
     const secondCycleBlocks = CYCLE_BLOCKS / 2;
@@ -1083,8 +1143,13 @@ describe("EthPool", function () {
       [receiver1, proxyWeightBase * 0.5],
       [receiver2, proxyWeightBase * 0.5],
     ]);
-    await sender.setProxy(proxy, proxyWeightBase);
-    await sender.setAmountPerBlock(proxyWeightBase);
+    await sender.updateSender(
+      0,
+      0,
+      proxyWeightBase,
+      [],
+      [[proxy, proxyWeightBase]]
+    );
     await mineBlocksUntilCycleEnd();
     await sender.topUp(0, proxyWeightBase);
     await mineBlocksUntilCycleEnd();
@@ -1103,10 +1168,13 @@ describe("EthPool", function () {
     const [sender] = await getEthPoolUsers();
     const proxyWeightBase = sender.proxyWeightsSum;
     await sender.setProxyWeights([[sender, proxyWeightBase]]);
-    await sender.setProxy(sender, proxyWeightBase);
-    await sender.setReceiver(sender, proxyWeightBase);
-    await sender.setAmountPerBlock(proxyWeightBase * 2);
-    await sender.topUp(0, proxyWeightBase * 2);
+    await sender.updateSender(
+      0,
+      proxyWeightBase * 2,
+      proxyWeightBase * 2,
+      [[sender, proxyWeightBase]],
+      [[sender, proxyWeightBase]]
+    );
     await mineBlocksUntilCycleEnd();
     await sender.collect(proxyWeightBase * 2);
   });
@@ -1168,14 +1236,21 @@ describe("EthPool", function () {
     const [sender, proxy, receiver] = await getEthPoolUsers();
     const proxyWeightBase = sender.proxyWeightsSum;
     await proxy.setProxyWeights([[receiver, proxyWeightBase]]);
-    for (
-      let i = 0;
-      i < sender.senderWeightsCountMax - sender.proxyWeightsCountMax;
-      i++
-    ) {
-      // This is much faster than using the `setReceiver()` test utility
-      await sender.pool.setReceiver(randomAddress(), 1);
-    }
+    const receivers = new Array(
+      sender.senderWeightsCountMax - sender.proxyWeightsCountMax
+    )
+      .fill(0)
+      .map(() => ({ receiver: randomAddress(), weight: 1 }));
+    await submit(
+      sender.submitUpdateSender(
+        0,
+        0,
+        sender.amountPerBlockUnchanged,
+        receivers,
+        []
+      ),
+      "updateSender"
+    );
     // Total weight too big by 1
     await sender.setReceiver(receiver, 1);
     await sender.expectSetProxyReverts(
@@ -1241,26 +1316,24 @@ describe("EthPool", function () {
 
   it("Allows withdrawal of all funds", async function () {
     const [sender, receiver] = await getEthPoolUsers();
-    await sender.topUp(0, 10);
-    await sender.setAmountPerBlock(1);
-    await sender.setReceiver(receiver, 1);
-    await mineBlocks(4);
-    const balanceBefore = await sender.pool.signer.getBalance();
-    await submit(
-      sender.pool.withdraw(sender.withdrawAll, { gasPrice: 0 }),
-      "withdraw ETH"
-    );
-    const balanceAfter = await sender.pool.signer.getBalance();
-    const withdrawn = balanceAfter.sub(balanceBefore).toNumber();
-    // Sender had 5 blocks paying 1 per block
-    expect(withdrawn).to.equal(
-      5,
-      "The withdrawn amount is different from the requested amount"
+    await sender.updateSender(0, 10, 1, [[receiver, 1]], []);
+    await mineBlocks(3);
+    await sender.submitChangingBalance(
+      () =>
+        sender.submitUpdateSender(
+          0,
+          sender.withdrawAll,
+          sender.amountPerBlockUnchanged,
+          [],
+          []
+        ),
+      "updateSender",
+      6
     );
     await sender.expectWithdrawable(0);
     await mineBlocksUntilCycleEnd();
-    // Receiver had 5 blocks paying 1 per block
-    await receiver.collect(5);
+    // Receiver had 4 blocks paying 1 per block
+    await receiver.collect(4);
   });
 });
 
@@ -1275,9 +1348,7 @@ describe("Erc20Pool", function () {
 
   it("Allows collecting funds", async function () {
     const [sender, receiver] = await getErc20PoolUsers();
-    await sender.topUp(0, 10);
-    await sender.setAmountPerBlock(10);
-    await sender.setReceiver(receiver, 1);
+    await sender.updateSender(0, 10, 10, [[receiver, 1]], []);
     await mineBlocksUntilCycleEnd();
     await receiver.collect(10);
   });

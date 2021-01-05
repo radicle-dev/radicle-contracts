@@ -1,4 +1,5 @@
 import {
+  BigNumber,
   BigNumberish,
   ContractReceipt,
   ContractTransaction,
@@ -97,4 +98,13 @@ export function numberToAddress(num: BigNumberish): string {
   const hex = utils.hexlify(num);
   const padded = utils.hexZeroPad(hex, 20);
   return utils.getAddress(padded);
+}
+
+export function expectBigNumberEq(
+  actual: BigNumberish,
+  expected: BigNumberish,
+  message: string
+): void {
+  const fullMessage = `${message} (actual: ${actual.toString()}, expected: ${expected.toString()})`;
+  expect(BigNumber.from(actual).eq(expected)).to.equal(true, fullMessage);
 }
