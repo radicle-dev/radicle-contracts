@@ -6,7 +6,7 @@ import * as abi from "@ethersproject/abi";
 
 import { Registrar } from "../contract-bindings/ethers/Registrar";
 import { Rad } from "../contract-bindings/ethers/Rad";
-import { ENS } from "../contract-bindings/ethers/ENS";
+import { Ens as ENS } from "../contract-bindings/ethers/Ens";
 import { Exchange } from "../contract-bindings/ethers/Exchange";
 import { EthPool } from "../contract-bindings/ethers/EthPool";
 import { Governor } from "../contract-bindings/ethers/Governor";
