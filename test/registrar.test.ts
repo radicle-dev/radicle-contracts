@@ -17,7 +17,7 @@ describe("Registrar", function () {
     // Initialize the registrar.
     await submit(registrar.initialize());
 
-    const fee = (await registrar.registrationFee()).toNumber();
+    const fee = (await registrar.registrationFeeEth()).toNumber();
     const initialSupply = await rad.totalSupply();
 
     assert(fee > 0, "Fee must be > 0");
