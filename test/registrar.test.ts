@@ -41,4 +41,20 @@ describe("Registrar", function () {
     const newSupply = await rad.totalSupply();
     assert.equal(newSupply.sub(initialSupply).toNumber(), -(fee - 1));
   });
+
+  it("should allow fees to be updated", async function () {
+    const [owner, registrant] = await ethers.getSigners();
+    const { rad, registrar } = await deployAll(owner);
+    const registrantAddr = await registrant.getAddress();
+
+    rad.connect(owner).transfer(registrantAddr, 100);
+
+    const fee = (await registrar.registrationFeeRad()).toNumber();
+
+    await submit(registrar.connect(owner).setRadRegistrationFee(fee * 2));
+
+    const newFee = (await registrar.registrationFeeRad()).toNumber();
+
+    assert.equal(newFee, fee * 2);
+  });
 });
