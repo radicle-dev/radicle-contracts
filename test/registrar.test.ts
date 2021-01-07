@@ -28,7 +28,7 @@ describe("Registrar", function () {
 
     // Register `cloudhead.radicle.eth`.
     await submit(
-      registrar.register("cloudhead", registrantAddr, { value: fee })
+      registrar.registerEth("cloudhead", registrantAddr, { value: fee })
     );
     assert.equal(
       await ens.owner(ensUtils.nameHash("cloudhead.radicle.eth")),
