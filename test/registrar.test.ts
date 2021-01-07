@@ -49,12 +49,12 @@ describe("Registrar", function () {
 
     rad.connect(owner).transfer(registrantAddr, 100);
 
-    const fee = (await registrar.registrationFeeRad()).toNumber();
+    const fee = (await registrar.registrationFeeRad());
 
-    await submit(registrar.connect(owner).setRadRegistrationFee(fee * 2));
+    await submit(registrar.connect(owner).setRadRegistrationFee(fee.mul(2)));
 
-    const newFee = (await registrar.registrationFeeRad()).toNumber();
+    const newFee = (await registrar.registrationFeeRad());
 
-    assert.equal(newFee, fee * 2);
+    assert(newFee.eq(fee.mul(2)));
   });
 });
