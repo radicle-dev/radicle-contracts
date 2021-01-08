@@ -85,7 +85,8 @@ export async function deployRegistrar(
     ensUtils.nameHash("radicle.eth"),
     oracle,
     exchange.address,
-    rad
+    rad,
+    signerAddr
   );
 
   await submitOk(

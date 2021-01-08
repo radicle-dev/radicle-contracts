@@ -17,7 +17,7 @@ describe("Registrar", function () {
     // Initialize the registrar.
     await submit(registrar.initialize());
 
-    const fee = (await registrar.registrationFee()).toNumber();
+    const fee = (await registrar.registrationFeeEth()).toNumber();
     const initialSupply = await rad.totalSupply();
 
     assert(fee > 0, "Fee must be > 0");
@@ -28,7 +28,7 @@ describe("Registrar", function () {
 
     // Register `cloudhead.radicle.eth`.
     await submit(
-      registrar.register("cloudhead", registrantAddr, { value: fee })
+      registrar.registerEth("cloudhead", registrantAddr, { value: fee })
     );
     assert.equal(
       await ens.owner(ensUtils.nameHash("cloudhead.radicle.eth")),
@@ -40,5 +40,21 @@ describe("Registrar", function () {
     // lower than the exact conversion.
     const newSupply = await rad.totalSupply();
     assert.equal(newSupply.sub(initialSupply).toNumber(), -(fee - 1));
+  });
+
+  it("should allow fees to be updated", async function () {
+    const [owner, registrant] = await ethers.getSigners();
+    const { rad, registrar } = await deployAll(owner);
+    const registrantAddr = await registrant.getAddress();
+
+    await rad.connect(owner).transfer(registrantAddr, 100);
+
+    const fee = await registrar.registrationFeeRad();
+
+    await submit(registrar.connect(owner).setRadRegistrationFee(fee.mul(2)));
+
+    const newFee = await registrar.registrationFeeRad();
+
+    assert(newFee.eq(fee.mul(2)));
   });
 });
