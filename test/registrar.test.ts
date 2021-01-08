@@ -47,7 +47,7 @@ describe("Registrar", function () {
     const { rad, registrar } = await deployAll(owner);
     const registrantAddr = await registrant.getAddress();
 
-    rad.connect(owner).transfer(registrantAddr, 100);
+    await rad.connect(owner).transfer(registrantAddr, 100);
 
     const fee = await registrar.registrationFeeRad();
 
