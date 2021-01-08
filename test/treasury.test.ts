@@ -18,7 +18,7 @@ describe("Treasury", function () {
       to: treasuryAddress,
     });
 
-    let founderBalance = await founder.getBalance();
+    const founderBalance = await founder.getBalance();
 
     await submitFailing(
       treasury.connect(thief).withdraw(ethers.constants.AddressZero, amount)
