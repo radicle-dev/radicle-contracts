@@ -82,7 +82,8 @@ export async function deployRegistrar(
   const rad = await exchange.rad();
   const registrar = await new Registrar__factory(signer).deploy(
     ens.address,
-    ensUtils.nameHash("radicle.eth"),
+    ensUtils.nameHash("eth"),
+    ensUtils.labelHash("radicle"),
     oracle,
     exchange.address,
     rad,

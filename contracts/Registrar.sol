@@ -12,16 +12,22 @@ contract Registrar {
     ENS public immutable ens;
 
     /// The price oracle.
-    PriceOracle public immutable oracle;
+    PriceOracle public oracle;
 
     /// The Rad/Eth exchange.
-    Exchange public immutable exchange;
+    Exchange public exchange;
 
     /// The Rad ERC20 token.
     Rad public immutable rad;
 
-    /// The namehash of the domain this registrar owns(eg. radicle.eth).
-    bytes32 public immutable rootNode;
+    /// The parent node namehash, eg. namehash("eth").
+    bytes32 public immutable parentNode;
+
+    /// The base label, eg. hash("radicle").
+    bytes32 public immutable baseLabel;
+
+    /// The namehash of the node, eg. namehash("radicle.eth").
+    bytes32 public immutable domain;
 
     /// Registration fee in *USD*.
     uint256 public registrationFeeUsd = 10;
@@ -40,7 +46,8 @@ contract Registrar {
 
     constructor(
         address ensAddress,
-        bytes32 _rootNode,
+        bytes32 _parentNode,
+        bytes32 _baseLabel,
         address oracleAddress,
         address exchangeAddress,
         address radAddress,
@@ -50,7 +57,9 @@ contract Registrar {
         oracle = PriceOracle(oracleAddress);
         exchange = Exchange(exchangeAddress);
         rad = Rad(radAddress);
-        rootNode = _rootNode;
+        baseLabel = _baseLabel;
+        parentNode = _parentNode;
+        domain = namehash(_parentNode, _baseLabel);
         admin = adminAddress;
     }
 
@@ -95,11 +104,11 @@ contract Registrar {
     }
 
     function _register(bytes32 label, address owner) private {
-        bytes32 node = namehash(rootNode, label);
+        bytes32 node = namehash(domain, label);
 
         require(!ens.recordExists(node), "Record must not already exist");
 
-        ens.setSubnodeOwner(rootNode, label, owner);
+        ens.setSubnodeOwner(domain, label, owner);
     }
 
     /// Check whether a name is valid.
@@ -111,7 +120,7 @@ contract Registrar {
     /// Check whether a name is available for registration.
     function available(string memory name) public view returns (bool) {
         bytes32 label = keccak256(bytes(name));
-        bytes32 node = namehash(rootNode, label);
+        bytes32 node = namehash(domain, label);
 
         return valid(name) && !ens.recordExists(node);
     }
@@ -120,6 +129,14 @@ contract Registrar {
     function namehash(bytes32 parent, bytes32 label) public pure returns (bytes32) {
         return keccak256(abi.encodePacked(parent, label));
     }
+
+    /// Registration fee in `wei`.
+    function registrationFeeEth() public view returns (uint256) {
+        // Convert USD fee into ETH.
+        return oracle.consultUsdEth(registrationFeeUsd);
+    }
+
+    // ADMIN FUNCTIONS
 
     /// Set the USD registration fee.
     function setUsdRegistrationFee(uint256 fee) public adminOnly {
@@ -131,9 +148,31 @@ contract Registrar {
         registrationFeeRad = fee;
     }
 
-    /// Registration fee in `wei`.
-    function registrationFeeEth() public view returns (uint256) {
-        // Convert USD fee into ETH.
-        return oracle.consultUsdEth(registrationFeeUsd);
+    /// Set the price oracle.
+    function setPriceOracle(address oracleAddress) public adminOnly {
+        require(
+            oracleAddress != address(0),
+            "Registrar::setPriceOracle: oracle address cannot be zero"
+        );
+        oracle = PriceOracle(oracleAddress);
+    }
+
+    /// Set the exchange.
+    function setExchange(address exchangeAddress) public adminOnly {
+        require(
+            exchangeAddress != address(0),
+            "Registrar::setExchange: exchange address cannot be zero"
+        );
+        exchange = Exchange(exchangeAddress);
+    }
+
+    /// Set the owner of the domain.
+    function setDomainOwner(address newOwner) public adminOnly {
+        ens.setOwner(namehash(parentNode, baseLabel), newOwner);
+    }
+
+    /// Set a new admin
+    function setAdmin(address _admin) public adminOnly {
+        admin = _admin;
     }
 }
