@@ -57,4 +57,21 @@ describe("Registrar", function () {
 
     assert(newFee.eq(fee.mul(2)));
   });
+
+  it("should allow the domain owner to be updated", async function () {
+    const [owner, newOwner] = await ethers.getSigners();
+    const { ens, registrar } = await deployAll(owner);
+    const newOwnerAddr = await newOwner.getAddress();
+
+    assert.equal(
+      await ens.owner(ensUtils.nameHash("radicle.eth")),
+      registrar.address
+    );
+    await submit(registrar.connect(owner).setDomainOwner(newOwnerAddr));
+
+    assert.equal(
+      await ens.owner(ensUtils.nameHash("radicle.eth")),
+      newOwnerAddr
+    );
+  });
 });
