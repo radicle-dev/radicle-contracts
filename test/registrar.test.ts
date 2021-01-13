@@ -5,7 +5,7 @@ import { deployAll } from "../src/deploy";
 import * as ensUtils from "../src/ens";
 
 describe("Registrar", function () {
-  it("should allow registration of names", async function () {
+  it("should allow registration of names with Radicle tokens", async function () {
     const [owner, registrant] = await ethers.getSigners();
     const { rad, registrar, ens } = await deployAll(owner);
     const registrantAddr = await registrant.getAddress();
@@ -17,10 +17,13 @@ describe("Registrar", function () {
     // Initialize the registrar.
     await submit(registrar.initialize());
 
-    const fee = (await registrar.registrationFeeEth()).toNumber();
+    const fee = await registrar.registrationFeeRad();
     const initialSupply = await rad.totalSupply();
 
-    assert(fee > 0, "Fee must be > 0");
+    assert(fee.gt(0), "Fee must be > 0");
+
+    await rad.connect(owner).transfer(registrantAddr, fee);
+    await rad.connect(registrant).approve(registrar.address, fee);
 
     // Check name availability.
     assert(await registrar.available("cloudhead"));
@@ -28,7 +31,7 @@ describe("Registrar", function () {
 
     // Register `cloudhead.radicle.eth`.
     await submit(
-      registrar.registerEth("cloudhead", registrantAddr, { value: fee })
+      registrar.connect(registrant).registerRad("cloudhead", registrantAddr)
     );
     assert.equal(
       await ens.owner(ensUtils.nameHash("cloudhead.radicle.eth")),
@@ -36,10 +39,9 @@ describe("Registrar", function () {
     );
     assert(!(await registrar.available("cloudhead")));
 
-    // Check that the burn happened. The exact amount swapped is always slightly
-    // lower than the exact conversion.
+    // Check that the burn happened.
     const newSupply = await rad.totalSupply();
-    assert.equal(newSupply.sub(initialSupply).toNumber(), -(fee - 1));
+    assert(initialSupply.sub(newSupply).eq(fee));
   });
 
   it("should allow fees to be updated", async function () {
