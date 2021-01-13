@@ -14,9 +14,6 @@ describe("Registrar", function () {
     // for our token pairs.
     await elapseTime(60 * 60 * 24);
 
-    // Initialize the registrar.
-    await submit(registrar.initialize());
-
     const fee = await registrar.registrationFeeRad();
     const initialSupply = await rad.totalSupply();
 
