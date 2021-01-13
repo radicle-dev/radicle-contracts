@@ -18,7 +18,7 @@ describe("Proxy", function () {
     assert.equal((await contract1.version()).toNumber(), 1);
     assert.equal((await contract2.version()).toNumber(), 2);
 
-    const proxy = await new Proxy__factory(admin).deploy();
+    const proxy = await new Proxy__factory(admin).deploy(adminAddr);
 
     assert.equal(await proxy.admin(), adminAddr);
     assert.equal(
