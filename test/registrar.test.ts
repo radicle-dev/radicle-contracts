@@ -42,6 +42,7 @@ describe("Registrar", function () {
     // Check that the burn happened.
     const newSupply = await rad.totalSupply();
     assert(initialSupply.sub(newSupply).eq(fee));
+    assert((await rad.balanceOf(registrantAddr)).eq(0));
   });
 
   it("should allow fees to be updated", async function () {
