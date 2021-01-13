@@ -7,6 +7,10 @@ with regard to its JavaScript and TypeScript bindings' APIs and the Ethereum ABI
 
 ## [Unreleased]
 
+### Added
+- Burning capability to Radicle Token
+
+### Changed
 - Replaced vesting contract with one adapted from Melonport
 
 ## [0.1.0] - 2020-12-01
