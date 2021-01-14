@@ -1,15 +1,14 @@
 import { ethers } from "hardhat";
 import { assert } from "chai";
 import { submit, submitFailing } from "./support";
-
-import { Treasury__factory } from "../contract-bindings/ethers";
+import { deployTreasury } from "../src/deploy";
 
 describe("Treasury", function () {
   it("allows deposits and withdrawals", async function () {
     const [admin, founder, thief] = await ethers.getSigners();
     const adminAddress = await admin.getAddress();
     const founderAddress = await founder.getAddress();
-    const treasury = await new Treasury__factory(admin).deploy(adminAddress);
+    const treasury = await deployTreasury(admin, adminAddress);
     const treasuryAddress = treasury.address;
     const amount = ethers.utils.parseEther("10");
 

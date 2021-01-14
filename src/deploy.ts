@@ -4,23 +4,26 @@ import assert from "assert";
 import * as ethers from "ethers";
 import * as abi from "@ethersproject/abi";
 
-import { Registrar } from "../contract-bindings/ethers/Registrar";
 import { ENS } from "../contract-bindings/ethers/ENS";
-import { Exchange } from "../contract-bindings/ethers/Exchange";
 import { EthPool } from "../contract-bindings/ethers/EthPool";
+import { Exchange } from "../contract-bindings/ethers/Exchange";
 import { Governor } from "../contract-bindings/ethers/Governor";
 import { RadicleToken } from "../contract-bindings/ethers/RadicleToken";
+import { Registrar } from "../contract-bindings/ethers/Registrar";
+import { Timelock } from "../contract-bindings/ethers/Timelock";
+import { Treasury } from "../contract-bindings/ethers/Treasury";
 import {
+  Erc20Pool__factory,
+  Erc20Pool,
+  EthPool__factory,
+  Exchange__factory,
+  FixedWindowOracle__factory,
   Governor__factory,
   RadicleToken__factory,
-  Timelock__factory,
-  Exchange__factory,
-  EthPool__factory,
-  Erc20Pool__factory,
-  FixedWindowOracle__factory,
   Registrar__factory,
   StablePriceOracle__factory,
-  Erc20Pool,
+  Timelock__factory,
+  Treasury__factory,
 } from "../contract-bindings/ethers";
 import * as ensUtils from "./ens";
 
@@ -31,13 +34,8 @@ import WETH9 from "@uniswap/v2-periphery/build/WETH9.json";
 import IUniswapV2Pair from "@uniswap/v2-core/build/IUniswapV2Pair.json";
 import ENSRegistry from "@ensdomains/ens/build/contracts/ENSRegistry.json";
 
-export interface DeployedGovernance {
-  token: RadicleToken;
-  governor: Governor;
-}
-
 export interface DeployedContracts {
-  gov: DeployedGovernance;
+  gov: Governor;
   rad: RadicleToken;
   registrar: Registrar;
   exchange: Exchange;
@@ -49,77 +47,93 @@ export interface DeployedContracts {
 export async function deployAll(
   signer: ethers.Signer
 ): Promise<DeployedContracts> {
-  const gov = await deployGovernance(signer);
-  const rad = await deployRad(signer);
+  const signerAddr = await signer.getAddress();
+  const rad = await deployRadicleToken(signer, signerAddr);
+  const timelock = await deployTimelock(signer, signerAddr, 2 * 60 * 60 * 24);
+  const gov = await deployGovernance(
+    signer,
+    timelock.address,
+    rad.address,
+    signerAddr
+  );
   const exchange = await deployExchange(rad, signer);
-  const ens = (await deployContract(signer, ENSRegistry, [])) as ENS;
-  const registrar = await deployRegistrar(exchange, ens, signer);
+  const ens = await deployEns(signer);
+  await setSubnodeOwner(ens, "", "eth", signerAddr);
+  const registrar = await deployRegistrar(
+    signer,
+    await exchange.oracle(),
+    exchange.address,
+    rad.address,
+    ens,
+    "eth",
+    "radicle",
+    signerAddr
+  );
   const ethPool = await deployEthPool(signer, 10);
   const erc20Pool = await deployErc20Pool(signer, 10, rad.address);
 
   return { gov, rad, exchange, registrar, ens, ethPool, erc20Pool };
 }
 
-export async function deployRad(signer: ethers.Signer): Promise<RadicleToken> {
-  const signerAddr = await signer.getAddress();
-  const radToken = await new RadicleToken__factory(signer).deploy(signerAddr);
-
-  return radToken;
+export async function deployRadicleToken(
+  signer: ethers.Signer,
+  account: string
+): Promise<RadicleToken> {
+  return await new RadicleToken__factory(signer).deploy(account);
 }
 
 export async function deployRegistrar(
-  exchange: Exchange,
-  ens: ENS,
-  signer: ethers.Signer
+  signer: ethers.Signer,
+  oracle: string,
+  exchange: string,
+  token: string,
+  ens: ENS, // The connected signer must be the owner of the domain
+  domain: string,
+  label: string,
+  admin: string
 ): Promise<Registrar> {
-  const signerAddr = await signer.getAddress();
-  const oracle = await exchange.oracle();
-  const rad = await exchange.rad();
   const registrar = await new Registrar__factory(signer).deploy(
     ens.address,
-    ensUtils.nameHash("eth"),
-    ensUtils.labelHash("radicle"),
+    ensUtils.nameHash(label + "." + domain),
     oracle,
-    exchange.address,
-    rad,
-    signerAddr
+    exchange,
+    token,
+    admin
   );
-
-  await submitOk(
-    ens.setSubnodeOwner(
-      ensUtils.nameHash(""),
-      ensUtils.labelHash("eth"),
-      signerAddr
-    )
-  );
-  await submitOk(
-    ens.setSubnodeOwner(
-      ensUtils.nameHash("eth"),
-      ensUtils.labelHash("radicle"),
-      registrar.address
-    )
-  );
-
+  await setSubnodeOwner(ens, domain, label, registrar.address);
   return registrar;
 }
 
+export async function setSubnodeOwner(
+  ens: ENS,
+  domain: string,
+  label: string,
+  owner: string
+): Promise<void> {
+  await submitOk(
+    ens.setSubnodeOwner(
+      ensUtils.nameHash(domain),
+      ensUtils.labelHash(label),
+      owner
+    )
+  );
+}
+
 export async function deployGovernance(
-  signer: ethers.Signer
-): Promise<DeployedGovernance> {
-  const signerAddr = await signer.getAddress();
+  signer: ethers.Signer,
+  timelock: string,
+  token: string,
+  guardian: string
+): Promise<Governor> {
+  return await new Governor__factory(signer).deploy(timelock, token, guardian);
+}
 
-  const timelock = await new Timelock__factory(signer).deploy(
-    signerAddr,
-    2 * 60 * 60 * 24
-  );
-  const token = await new RadicleToken__factory(signer).deploy(signerAddr);
-  const governor = await new Governor__factory(signer).deploy(
-    timelock.address,
-    token.address,
-    signerAddr
-  );
-
-  return { governor, token };
+export async function deployTimelock(
+  signer: ethers.Signer,
+  admin: string,
+  delay: ethers.BigNumberish
+): Promise<Timelock> {
+  return await new Timelock__factory(signer).deploy(admin, delay);
 }
 
 export async function deployExchange(
@@ -221,6 +235,17 @@ export async function deployErc20Pool(
     cycleBlocks,
     erc20TokenAddress
   );
+}
+
+export async function deployTreasury(
+  signer: ethers.Signer,
+  admin: string
+): Promise<Treasury> {
+  return await new Treasury__factory(signer).deploy(admin);
+}
+
+export async function deployEns(signer: ethers.Signer): Promise<ENS> {
+  return (await deployContract(signer, ENSRegistry, [])) as ENS;
 }
 
 async function submitOk(
