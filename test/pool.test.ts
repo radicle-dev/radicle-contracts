@@ -1,9 +1,9 @@
 import {
   Erc20Pool__factory,
   EthPool__factory,
-  Rad__factory,
+  RadicleToken__factory,
 } from "../contract-bindings/ethers";
-import { ERC20 } from "../contract-bindings/ethers/ERC20";
+import { IERC20 } from "../contract-bindings/ethers/IERC20";
 import { Erc20Pool } from "../contract-bindings/ethers/Erc20Pool";
 import { EthPool } from "../contract-bindings/ethers/EthPool";
 import { ethers } from "hardhat";
@@ -488,11 +488,7 @@ async function getErc20PoolUsers(): Promise<Erc20PoolUser[]> {
   const signer0 = signers[0];
   const signer0Addr = await signer0.getAddress();
 
-  const totalSupply = signers.length;
-  const erc20 = await new Rad__factory(signer0).deploy(
-    signer0Addr,
-    totalSupply
-  );
+  const erc20 = await new RadicleToken__factory(signer0).deploy(signer0Addr);
   await erc20.deployed();
 
   const pool = await new Erc20Pool__factory(signer0).deploy(
@@ -515,13 +511,13 @@ async function getErc20PoolUsers(): Promise<Erc20PoolUser[]> {
 }
 
 class Erc20PoolUser extends PoolUser<Erc20Pool> {
-  erc20: ERC20;
+  erc20: IERC20;
 
   constructor(
     pool: Erc20Pool,
     userAddr: string,
     constants: PoolConstants,
-    erc20: ERC20
+    erc20: IERC20
   ) {
     super(pool, userAddr, constants);
     this.erc20 = erc20;
@@ -529,7 +525,7 @@ class Erc20PoolUser extends PoolUser<Erc20Pool> {
 
   static async new(
     pool: Erc20Pool,
-    erc20: ERC20,
+    erc20: IERC20,
     signer: Signer,
     constants: PoolConstants
   ): Promise<Erc20PoolUser> {

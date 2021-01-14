@@ -5,7 +5,6 @@ import * as ethers from "ethers";
 import * as abi from "@ethersproject/abi";
 
 import { Registrar } from "../contract-bindings/ethers/Registrar";
-import { Rad } from "../contract-bindings/ethers/Rad";
 import { ENS } from "../contract-bindings/ethers/ENS";
 import { Exchange } from "../contract-bindings/ethers/Exchange";
 import { EthPool } from "../contract-bindings/ethers/EthPool";
@@ -15,7 +14,6 @@ import {
   Governor__factory,
   RadicleToken__factory,
   Timelock__factory,
-  Rad__factory,
   Exchange__factory,
   EthPool__factory,
   Erc20Pool__factory,
@@ -40,7 +38,7 @@ export interface DeployedGovernance {
 
 export interface DeployedContracts {
   gov: DeployedGovernance;
-  rad: Rad;
+  rad: RadicleToken;
   registrar: Registrar;
   exchange: Exchange;
   ens: ENS;
@@ -62,12 +60,9 @@ export async function deployAll(
   return { gov, rad, exchange, registrar, ens, ethPool, erc20Pool };
 }
 
-export async function deployRad(signer: ethers.Signer): Promise<Rad> {
+export async function deployRad(signer: ethers.Signer): Promise<RadicleToken> {
   const signerAddr = await signer.getAddress();
-  const radToken = await new Rad__factory(signer).deploy(
-    signerAddr,
-    toDecimals(10000, 18)
-  );
+  const radToken = await new RadicleToken__factory(signer).deploy(signerAddr);
 
   return radToken;
 }
@@ -128,7 +123,7 @@ export async function deployGovernance(
 }
 
 export async function deployExchange(
-  radToken: Rad,
+  radToken: RadicleToken,
   signer: ethers.Signer
 ): Promise<Exchange> {
   const signerAddr = await signer.getAddress();
