@@ -12,6 +12,7 @@ import { RadicleToken } from "../contract-bindings/ethers/RadicleToken";
 import { Registrar } from "../contract-bindings/ethers/Registrar";
 import { Timelock } from "../contract-bindings/ethers/Timelock";
 import { Treasury } from "../contract-bindings/ethers/Treasury";
+import { VestingToken } from "../contract-bindings/ethers/VestingToken";
 import {
   Erc20Pool__factory,
   Erc20Pool,
@@ -24,6 +25,7 @@ import {
   StablePriceOracle__factory,
   Timelock__factory,
   Treasury__factory,
+  VestingToken__factory,
 } from "../contract-bindings/ethers";
 import * as ensUtils from "./ens";
 
@@ -58,17 +60,17 @@ export async function deployAll(
   );
   const exchange = await deployExchange(rad, signer);
   const ens = await deployEns(signer);
-  await setSubnodeOwner(ens, "", "eth", signerAddr);
   const registrar = await deployRegistrar(
     signer,
     await exchange.oracle(),
     exchange.address,
     rad.address,
-    ens,
-    "eth",
-    "radicle",
+    ens.address,
+    "radicle.eth",
     signerAddr
   );
+  await setSubnodeOwner(ens, "", "eth", signerAddr);
+  await setSubnodeOwner(ens, "eth", "radicle", registrar.address);
   const ethPool = await deployEthPool(signer, 10);
   const erc20Pool = await deployErc20Pool(signer, 10, rad.address);
 
@@ -82,25 +84,44 @@ export async function deployRadicleToken(
   return await new RadicleToken__factory(signer).deploy(account);
 }
 
+export async function deployVestingToken(
+  signer: ethers.Signer,
+  token: string,
+  owner: string,
+  beneficiary: string,
+  amount: ethers.BigNumberish,
+  vestingStartTime: ethers.BigNumberish,
+  vestingPeriod: ethers.BigNumberish,
+  cliffPeriod: ethers.BigNumberish
+): Promise<VestingToken> {
+  return await new VestingToken__factory(signer).deploy(
+    token,
+    owner,
+    beneficiary,
+    amount,
+    vestingStartTime,
+    vestingPeriod,
+    cliffPeriod
+  );
+}
+
 export async function deployRegistrar(
   signer: ethers.Signer,
   oracle: string,
   exchange: string,
   token: string,
-  ens: ENS, // The connected signer must be the owner of the domain
+  ens: string,
   domain: string,
-  label: string,
   admin: string
 ): Promise<Registrar> {
   const registrar = await new Registrar__factory(signer).deploy(
-    ens.address,
-    ensUtils.nameHash(label + "." + domain),
+    ens,
+    ensUtils.nameHash(domain),
     oracle,
     exchange,
     token,
     admin
   );
-  await setSubnodeOwner(ens, domain, label, registrar.address);
   return registrar;
 }
 
