@@ -36,6 +36,16 @@ import WETH9 from "@uniswap/v2-periphery/build/WETH9.json";
 import IUniswapV2Pair from "@uniswap/v2-core/build/IUniswapV2Pair.json";
 import ENSRegistry from "@ensdomains/ens/build/contracts/ENSRegistry.json";
 
+export async function nextDeployedContractAddr(
+  signer: ethers.Signer,
+  afterTransactions: number
+): Promise<string> {
+  return ethers.utils.getContractAddress({
+    from: await signer.getAddress(),
+    nonce: (await signer.getTransactionCount()) + afterTransactions,
+  });
+}
+
 export interface DeployedContracts {
   gov: Governor;
   rad: RadicleToken;

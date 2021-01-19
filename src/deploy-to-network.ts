@@ -7,13 +7,14 @@ import {
   deployTreasury,
   deployRegistrar,
   deployVestingToken,
+  nextDeployedContractAddr,
 } from "./deploy";
 import assert from "assert";
 import { nameHash } from "./ens";
 import WalletConnectProvider from "@walletconnect/web3-provider";
 import { BigNumber, Contract, constants, providers, utils } from "ethers";
 import readline from "readline";
-import { ENS__factory } from "../contract-bindings/ethers";
+import { ERC20__factory, ENS__factory } from "../contract-bindings/ethers";
 
 const INFURA_ID = "de5e2a8780c04964950e73b696d1bfb1";
 
@@ -108,6 +109,10 @@ export async function phase0(): Promise<void> {
   console.log("The wallet address must own the", domain, "domain in the ENS");
   const provider = await walletConnectProvider();
   const signer = provider.getSigner();
+  // The address is precalculated here to avoid race condition
+  // caused by the signer nonce being updated asynchronously in the background
+  // and impossibility to `.wait()` on the contract deployment transaction
+  const govAddr = await nextDeployedContractAddr(signer, 2);
   const govGuardian = await askForAddress("of the governor guardian");
   const tokensHolder = await askForAddress("to hold all the Radicle Tokens");
   const ensAddr = await askForAddress("of the ENS");
@@ -116,10 +121,6 @@ export async function phase0(): Promise<void> {
     deployRadicleToken(signer, tokensHolder)
   );
 
-  const govAddr = utils.getContractAddress({
-    from: await signer.getAddress(),
-    nonce: 2 + (await signer.getTransactionCount()),
-  });
   const delay = 60 * 60 * 24 * 2;
   const timelock = await deploy("timelock", () =>
     deployTimelock(signer, govAddr, delay)
@@ -161,7 +162,8 @@ export async function vestingTokens(): Promise<void> {
   console.log("The wallet owner will be the one providing tokens for vesting");
   const provider = await walletConnectProvider();
   const signer = provider.getSigner();
-  const token = await askForAddress("of the token");
+  const tokenAddr = await askForAddress("of the token");
+  const token = ERC20__factory.connect(tokenAddr, signer);
   const owner = await askForAddress("of the owner of all created vestings");
   const dayLength = 60 * 60 * 24;
   const yearLength = dayLength * 365;
@@ -174,10 +176,14 @@ export async function vestingTokens(): Promise<void> {
     const vestingStartTime = await askForBigNumber(
       "vesting start time in seconds since epoch"
     );
+    const vestingAddr = await nextDeployedContractAddr(signer, 1);
+    console.log("Approving tokens for the vesting contract");
+    await (await token.approve(vestingAddr, amount)).wait();
+    console.log("Tokens approved");
     await deploy("vesting tokens", () =>
       deployVestingToken(
         signer,
-        token,
+        tokenAddr,
         owner,
         beneficiary,
         amount,
@@ -186,7 +192,7 @@ export async function vestingTokens(): Promise<void> {
         cliffPeriod
       )
     );
-    console.log(beneficiary, "has", amount, "vested");
+    console.log(beneficiary, "has", amount.toString(), "tokens vested");
   } while (await askYesNo("Create another vesting?"));
   await provider.close();
 }

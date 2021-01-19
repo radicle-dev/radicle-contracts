@@ -8,6 +8,8 @@ import {
 import { expect } from "chai";
 import { ethers } from "hardhat";
 
+export { nextDeployedContractAddr } from "../src/deploy";
+
 export async function wait(
   response: Promise<ContractTransaction>
 ): Promise<ContractReceipt> {
