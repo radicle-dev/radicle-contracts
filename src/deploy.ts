@@ -4,6 +4,7 @@ import assert from "assert";
 import * as ethers from "ethers";
 import * as abi from "@ethersproject/abi";
 
+import { BaseRegistrar } from "../contract-bindings/ethers/BaseRegistrar";
 import { ENS } from "../contract-bindings/ethers/ENS";
 import { EthPool } from "../contract-bindings/ethers/EthPool";
 import { Exchange } from "../contract-bindings/ethers/Exchange";
@@ -14,12 +15,14 @@ import { Timelock } from "../contract-bindings/ethers/Timelock";
 import { Treasury } from "../contract-bindings/ethers/Treasury";
 import { VestingToken } from "../contract-bindings/ethers/VestingToken";
 import {
+  ENS__factory,
   Erc20Pool__factory,
   Erc20Pool,
   EthPool__factory,
   Exchange__factory,
   FixedWindowOracle__factory,
   Governor__factory,
+  IERC721__factory,
   RadicleToken__factory,
   Registrar__factory,
   StablePriceOracle__factory,
@@ -35,6 +38,7 @@ import ERC20 from "@uniswap/v2-periphery/build/ERC20.json";
 import WETH9 from "@uniswap/v2-periphery/build/WETH9.json";
 import IUniswapV2Pair from "@uniswap/v2-core/build/IUniswapV2Pair.json";
 import ENSRegistry from "@ensdomains/ens/build/contracts/ENSRegistry.json";
+import BaseRegistrarImplementation from "@ensdomains/ethregistrar/build/contracts/BaseRegistrarImplementation.json";
 
 export async function nextDeployedContractAddr(
   signer: ethers.Signer,
@@ -69,18 +73,16 @@ export async function deployAll(
     signerAddr
   );
   const exchange = await deployExchange(rad, signer);
-  const ens = await deployEns(signer);
+  const ens = await deployTestEns(signer, "radicle");
   const registrar = await deployRegistrar(
     signer,
     await exchange.oracle(),
     exchange.address,
     rad.address,
     ens.address,
-    "radicle.eth",
+    "radicle",
     signerAddr
   );
-  await setSubnodeOwner(ens, "", "eth", signerAddr);
-  await setSubnodeOwner(ens, "eth", "radicle", registrar.address);
   const ethPool = await deployEthPool(signer, 10);
   const erc20Pool = await deployErc20Pool(signer, 10, rad.address);
 
@@ -115,39 +117,50 @@ export async function deployVestingToken(
   );
 }
 
+// The signer must be an owner of the `<label>.eth` domain
 export async function deployRegistrar(
   signer: ethers.Signer,
   oracle: string,
   exchange: string,
   token: string,
-  ens: string,
-  domain: string,
+  ensAddr: string,
+  label: string,
   admin: string
 ): Promise<Registrar> {
   const registrar = await new Registrar__factory(signer).deploy(
-    ens,
-    ensUtils.nameHash(domain),
+    ensAddr,
+    ensUtils.nameHash(label + ".eth"),
+    ensUtils.labelHash(label),
     oracle,
     exchange,
     token,
     admin
   );
+  const ens = ENS__factory.connect(ensAddr, signer);
+  await transferEthDomain(ens, label, registrar.address);
   return registrar;
 }
 
-export async function setSubnodeOwner(
+// The ENS signer must be the owner of the domain.
+// The new owner becomes the registrant, owner and resolver of the domain.
+export async function transferEthDomain(
   ens: ENS,
-  domain: string,
   label: string,
-  owner: string
+  newOwner: string
 ): Promise<void> {
-  await submitOk(
-    ens.setSubnodeOwner(
-      ensUtils.nameHash(domain),
-      ensUtils.labelHash(label),
-      owner
-    )
+  const signerAddr = await ens.signer.getAddress();
+  const ethNode = ensUtils.nameHash("eth");
+  const ethRegistrarAddr = await ens.owner(ethNode);
+  assert.notStrictEqual(
+    ethRegistrarAddr,
+    ethers.constants.AddressZero,
+    "No eth registrar found on ENS"
   );
+  const labelNode = ensUtils.nameHash(label + ".eth");
+  await submitOk(ens.setRecord(labelNode, newOwner, newOwner, 0));
+  const tokenId = ensUtils.labelHash(label);
+  const ethRegistrar = IERC721__factory.connect(ethRegistrarAddr, ens.signer);
+  await submitOk(ethRegistrar.transferFrom(signerAddr, newOwner, tokenId));
 }
 
 export async function deployGovernance(
@@ -275,8 +288,31 @@ export async function deployTreasury(
   return await new Treasury__factory(signer).deploy(admin);
 }
 
-export async function deployEns(signer: ethers.Signer): Promise<ENS> {
-  return (await deployContract(signer, ENSRegistry, [])) as ENS;
+// The signer becomes an owner of the '', 'eth' and '<label>.eth' domains,
+// the owner of the root ENS and the owner and controller of the 'eth' registrar
+export async function deployTestEns(
+  signer: ethers.Signer,
+  label: string
+): Promise<ENS> {
+  const signerAddr = await signer.getAddress();
+  const ens = (await deployContract(signer, ENSRegistry, [])) as ENS;
+  const ethRegistrar = (await deployContract(
+    signer,
+    BaseRegistrarImplementation,
+    [ens.address, ensUtils.nameHash("eth")]
+  )) as BaseRegistrar;
+  await submitOk(
+    ens.setSubnodeOwner(
+      ensUtils.nameHash(""),
+      ensUtils.labelHash("eth"),
+      ethRegistrar.address
+    )
+  );
+  await submitOk(ethRegistrar.addController(signerAddr));
+  await submitOk(
+    ethRegistrar.register(ensUtils.labelHash(label), signerAddr, 10 ** 10)
+  );
+  return ens;
 }
 
 async function submitOk(

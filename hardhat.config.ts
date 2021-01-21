@@ -25,9 +25,15 @@ export default {
   },
 };
 
+// Additional contracts to generate TypeScript bindings for
+const contracts = [
+  "node_modules/@ensdomains/ethregistrar/build/contracts/BaseRegistrar.json",
+];
+
 task(TASK_COMPILE).setAction(async (_, runtime, runSuper) => {
   await runSuper();
   const artifacts = await runtime.artifacts.getArtifactPaths();
+  artifacts.push(...contracts.map((contract) => path.resolve(contract)));
   const artifactsGlob = "{" + artifacts.join(",") + "}";
   await typeChain(artifactsGlob, ".");
   console.log(`Successfully generated Typechain artifacts!`);
