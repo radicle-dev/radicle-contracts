@@ -16,6 +16,7 @@ import { Treasury } from "../contract-bindings/ethers/Treasury";
 import { VestingToken } from "../contract-bindings/ethers/VestingToken";
 import {
   ENS__factory,
+  IERC20__factory,
   Erc20Pool__factory,
   Erc20Pool,
   EthPool__factory,
@@ -93,12 +94,12 @@ export async function deployRadicleToken(
   signer: ethers.Signer,
   account: string
 ): Promise<RadicleToken> {
-  return await new RadicleToken__factory(signer).deploy(account);
+  return deployOk(new RadicleToken__factory(signer).deploy(account));
 }
 
 export async function deployVestingToken(
   signer: ethers.Signer,
-  token: string,
+  tokenAddr: string,
   owner: string,
   beneficiary: string,
   amount: ethers.BigNumberish,
@@ -106,14 +107,19 @@ export async function deployVestingToken(
   vestingPeriod: ethers.BigNumberish,
   cliffPeriod: ethers.BigNumberish
 ): Promise<VestingToken> {
-  return await new VestingToken__factory(signer).deploy(
-    token,
-    owner,
-    beneficiary,
-    amount,
-    vestingStartTime,
-    vestingPeriod,
-    cliffPeriod
+  const token = IERC20__factory.connect(tokenAddr, signer);
+  const vestingAddr = await nextDeployedContractAddr(signer, 1);
+  await submitOk(token.approve(vestingAddr, amount));
+  return deployOk(
+    new VestingToken__factory(signer).deploy(
+      tokenAddr,
+      owner,
+      beneficiary,
+      amount,
+      vestingStartTime,
+      vestingPeriod,
+      cliffPeriod
+    )
   );
 }
 
@@ -127,14 +133,16 @@ export async function deployRegistrar(
   label: string,
   admin: string
 ): Promise<Registrar> {
-  const registrar = await new Registrar__factory(signer).deploy(
-    ensAddr,
-    ensUtils.nameHash(label + ".eth"),
-    ensUtils.labelHash(label),
-    oracle,
-    exchange,
-    token,
-    admin
+  const registrar = await deployOk(
+    new Registrar__factory(signer).deploy(
+      ensAddr,
+      ensUtils.nameHash(label + ".eth"),
+      ensUtils.labelHash(label),
+      oracle,
+      exchange,
+      token,
+      admin
+    )
   );
   const ens = ENS__factory.connect(ensAddr, signer);
   await transferEthDomain(ens, label, registrar.address);
@@ -169,7 +177,9 @@ export async function deployGovernance(
   token: string,
   guardian: string
 ): Promise<Governor> {
-  return await new Governor__factory(signer).deploy(timelock, token, guardian);
+  return deployOk(
+    new Governor__factory(signer).deploy(timelock, token, guardian)
+  );
 }
 
 export async function deployTimelock(
@@ -177,7 +187,7 @@ export async function deployTimelock(
   admin: string,
   delay: ethers.BigNumberish
 ): Promise<Timelock> {
-  return await new Timelock__factory(signer).deploy(admin, delay);
+  return deployOk(new Timelock__factory(signer).deploy(admin, delay));
 }
 
 export async function deployExchange(
@@ -245,19 +255,23 @@ export async function deployExchange(
   /////////////////////////////////////////////////////////////////////////////
 
   // Deploy price oracle
-  const fixedWindowOracle = await new FixedWindowOracle__factory(signer).deploy(
-    factory.address,
-    usdToken.address,
-    wethToken.address
+  const fixedWindowOracle = await deployOk(
+    new FixedWindowOracle__factory(signer).deploy(
+      factory.address,
+      usdToken.address,
+      wethToken.address
+    )
   );
-  const oracle = await new StablePriceOracle__factory(signer).deploy(
-    fixedWindowOracle.address
+  const oracle = await deployOk(
+    new StablePriceOracle__factory(signer).deploy(fixedWindowOracle.address)
   );
 
-  const exchange = await new Exchange__factory(signer).deploy(
-    radToken.address,
-    router.address,
-    oracle.address
+  const exchange = await deployOk(
+    new Exchange__factory(signer).deploy(
+      radToken.address,
+      router.address,
+      oracle.address
+    )
   );
 
   return exchange;
@@ -267,7 +281,7 @@ export async function deployEthPool(
   signer: ethers.Signer,
   cycleBlocks: number
 ): Promise<EthPool> {
-  return await new EthPool__factory(signer).deploy(cycleBlocks);
+  return deployOk(new EthPool__factory(signer).deploy(cycleBlocks));
 }
 
 export async function deployErc20Pool(
@@ -275,9 +289,8 @@ export async function deployErc20Pool(
   cycleBlocks: number,
   erc20TokenAddress: string
 ): Promise<Erc20Pool> {
-  return await new Erc20Pool__factory(signer).deploy(
-    cycleBlocks,
-    erc20TokenAddress
+  return deployOk(
+    new Erc20Pool__factory(signer).deploy(cycleBlocks, erc20TokenAddress)
   );
 }
 
@@ -285,7 +298,7 @@ export async function deployTreasury(
   signer: ethers.Signer,
   admin: string
 ): Promise<Treasury> {
-  return await new Treasury__factory(signer).deploy(admin);
+  return deployOk(new Treasury__factory(signer).deploy(admin));
 }
 
 // The signer becomes an owner of the '', 'eth' and '<label>.eth' domains,
@@ -315,12 +328,19 @@ export async function deployTestEns(
   return ens;
 }
 
-async function submitOk(
-  tx: Promise<ethers.ContractTransaction>
+async function deployOk<T extends ethers.Contract>(
+  contractPromise: Promise<T>
+): Promise<T> {
+  const contract = await contractPromise;
+  await contract.deployed();
+  return contract;
+}
+
+export async function submitOk(
+  tx: Promise<ethers.providers.TransactionResponse>
 ): Promise<ethers.ContractReceipt> {
   const receipt = await (await tx).wait();
   assert.strictEqual(receipt.status, 1, "transaction must be successful");
-
   return receipt;
 }
 
@@ -339,7 +359,7 @@ async function deployContract(
     compilerOutput.bytecode,
     signer
   );
-  return factory.deploy(...args);
+  return deployOk(factory.deploy(...args));
 }
 
 function toDecimals(n: number, exp: number): ethers.BigNumber {

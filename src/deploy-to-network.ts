@@ -122,10 +122,17 @@ async function deploy<T extends Contract>(
   name: string,
   fn: () => Promise<T>
 ): Promise<T> {
-  console.log("Deploying", name, "contract");
-  const contract = await fn();
-  console.log("Deployed", name, "contract", "under address", contract.address);
-  return contract;
+  for(;;) {
+    try {
+      console.log("Deploying", name, "contract");
+      const contract = await fn();
+      console.log("Deployed", name, "contract", "under address", contract.address);
+      return contract;
+    } catch (e) {
+      console.log(e);
+      console.log("Retrying");
+    }
+  }
 }
 
 export async function testEns(): Promise<void> {
@@ -152,15 +159,11 @@ export async function phase0(): Promise<void> {
     "Enter an 'eth' subdomain owned by the wallet to transfer to the registrar"
   );
 
-  // The address is precalculated here to avoid race condition
-  // caused by the signer nonce being updated asynchronously in the background
-  // and impossibility to `.wait()` on the contract deployment transaction
-  const govAddr = await nextDeployedContractAddr(signer, 2);
-
   const token = await deploy("Radicle Token", () =>
     deployRadicleToken(signer, tokensHolder)
   );
 
+  const govAddr = await nextDeployedContractAddr(signer, 1);
   const delay = 60 * 60 * 24 * 2;
   const timelock = await deploy("timelock", () =>
     deployTimelock(signer, govAddr, delay)
@@ -200,19 +203,15 @@ export async function vestingTokens(): Promise<void> {
   const signer = provider.getSigner();
   const tokenAddr = await askForAddress("of the Radicle token contract");
   const token = ERC20__factory.connect(tokenAddr, signer);
+  const decimals = await token.decimals();
+  const symbol = await token.symbol();
   const owner = await askForAddress("of the vesting contracts admin");
   const vestingPeriod = await askForDaysInSeconds("the vesting period");
   const cliffPeriod = await askForDaysInSeconds("the cliff period");
-  const decimals = await token.decimals();
-  const symbol = await token.symbol();
   do {
     const beneficiary = await askForAddress("of beneficiary");
     const amount = await askForAmount("to vest", decimals, symbol);
     const vestingStartTime = await askForTimestamp("of the vesting start");
-    const vestingAddr = await nextDeployedContractAddr(signer, 1);
-    console.log("Approving tokens for the vesting contract");
-    await (await token.approve(vestingAddr, amount)).wait();
-    console.log("Tokens approved");
     await deploy("vesting tokens", () =>
       deployVestingToken(
         signer,
