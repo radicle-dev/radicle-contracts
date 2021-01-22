@@ -3,7 +3,7 @@
   command: "ci/run"
   env:
     SHARED_MASTER_CACHE: true
-    DOCKER_IMAGE: gcr.io/opensourcecoin/radicle-registry-eth/ci-base:build-me-a-new-one
+    DOCKER_IMAGE: gcr.io/opensourcecoin/radicle-registry-eth/ci-base:d78a964e22d65fe45e1dcacdf5538de286e3624e
     DOCKER_FILE: ci/base-image/Dockerfile
   agents:
     platform: "linux"
