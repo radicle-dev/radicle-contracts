@@ -15,7 +15,6 @@ import { Timelock } from "../contract-bindings/ethers/Timelock";
 import { Treasury } from "../contract-bindings/ethers/Treasury";
 import { VestingToken } from "../contract-bindings/ethers/VestingToken";
 import {
-  ENS__factory,
   IERC20__factory,
   Erc20Pool__factory,
   Erc20Pool,
@@ -74,16 +73,18 @@ export async function deployAll(
     signerAddr
   );
   const exchange = await deployExchange(rad, signer);
-  const ens = await deployTestEns(signer, "radicle");
+  const label = "radicle";
+  const ens = await deployTestEns(signer, label);
   const registrar = await deployRegistrar(
     signer,
     await exchange.oracle(),
     exchange.address,
     rad.address,
     ens.address,
-    "radicle",
+    label,
     signerAddr
   );
+  await transferEthDomain(ens, label, registrar.address);
   const ethPool = await deployEthPool(signer, 10);
   const erc20Pool = await deployErc20Pool(signer, 10, rad.address);
 
@@ -123,7 +124,6 @@ export async function deployVestingToken(
   );
 }
 
-// The signer must be an owner of the `<label>.eth` domain
 export async function deployRegistrar(
   signer: ethers.Signer,
   oracle: string,
@@ -133,7 +133,7 @@ export async function deployRegistrar(
   label: string,
   admin: string
 ): Promise<Registrar> {
-  const registrar = await deployOk(
+  return await deployOk(
     new Registrar__factory(signer).deploy(
       ensAddr,
       ensUtils.nameHash(label + ".eth"),
@@ -144,9 +144,6 @@ export async function deployRegistrar(
       admin
     )
   );
-  const ens = ENS__factory.connect(ensAddr, signer);
-  await transferEthDomain(ens, label, registrar.address);
-  return registrar;
 }
 
 // The ENS signer must be the owner of the domain.

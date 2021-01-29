@@ -9,30 +9,35 @@ import {
   nextDeployedContractAddr,
 } from "./deploy";
 import assert from "assert";
-import WalletConnectProvider from "@walletconnect/web3-provider";
-import { BigNumber, Contract, constants, providers, utils } from "ethers";
-import { keyInYNStrict, question } from "readline-sync";
+import {
+  BigNumber,
+  Contract,
+  Wallet,
+  Signer,
+  constants,
+  providers,
+  utils,
+} from "ethers";
+import SigningKey = utils.SigningKey;
+import { keyInSelect, keyInYNStrict, question } from "readline-sync";
 import { ERC20__factory } from "../contract-bindings/ethers";
 
 const INFURA_ID = "de5e2a8780c04964950e73b696d1bfb1";
 
 export async function testEns(): Promise<void> {
   console.log(
-    "The wallet will become an owner of the '', 'eth' and '<domain>.eth' domains,"
+    "The deployer will become an owner of the '', 'eth' and '<domain>.eth' domains,"
   );
   console.log(
     "the owner of the root ENS and the owner and controller of the 'eth' registrar"
   );
-  const provider = await walletConnectProvider();
-  const signer = provider.getSigner();
+  const signer = await connectPrivateKeySigner();
   const label = askFor("Enter an 'eth' subdomain to register");
   await deploy("ENS", () => deployTestEns(signer, label));
-  await provider.close();
 }
 
 export async function phase0(): Promise<void> {
-  const provider = await walletConnectProvider();
-  const signer = provider.getSigner();
+  const signer = await connectPrivateKeySigner();
   const govGuardian = askForAddress("of the governor guardian");
   const tokensHolder = askForAddress("to hold all the Radicle Tokens");
   const ensAddr = askForAddress("of the ENS");
@@ -73,15 +78,12 @@ export async function phase0(): Promise<void> {
       timelockAddr
     )
   );
-  console.log(`Registrar owns the '${label}.eth' domain`);
-
-  await provider.close();
+  console.log(`Remember to give the '${label}.eth' domain to the registrar`);
 }
 
 export async function vestingTokens(): Promise<void> {
-  console.log("The wallet owner will be the one providing tokens for vesting");
-  const provider = await walletConnectProvider();
-  const signer = provider.getSigner();
+  console.log("The deployer will be the one providing tokens for vesting");
+  const signer = await connectPrivateKeySigner();
   const tokenAddr = askForAddress("of the Radicle token contract");
   const token = ERC20__factory.connect(tokenAddr, signer);
   const decimals = await token.decimals();
@@ -107,26 +109,34 @@ export async function vestingTokens(): Promise<void> {
     );
     console.log(beneficiary, "has", amount.toString(), "tokens vesting");
   } while (askYesNo("Create another vesting?"));
-  await provider.close();
 }
 
-interface Provider extends providers.Web3Provider {
-  close(): Promise<void>;
+async function connectPrivateKeySigner(): Promise<Signer> {
+  const signingKey = askForSigningKey("to sign all the transactions");
+  const network = askForNetwork("to connect to");
+  const provider = new providers.InfuraProvider(network, INFURA_ID);
+  const wallet = new Wallet(signingKey, provider);
+  const networkName = (await wallet.provider.getNetwork()).name;
+  console.log("Connected to", networkName, "using account", wallet.address);
+  return wallet;
 }
 
-async function walletConnectProvider(): Promise<Provider> {
-  const walletConnect = new WalletConnectProvider({ infuraId: INFURA_ID });
-  const web3Provider = new providers.Web3Provider(walletConnect);
-  const closeFn = (): Promise<void> => walletConnect.close();
-  const provider: Provider = Object.assign(web3Provider, { close: closeFn });
+function askForSigningKey(keyUsage: string): SigningKey {
+  for (;;) {
+    const key = askFor("Enter the private key " + keyUsage + ":", true);
+    try {
+      return new SigningKey(key);
+    } catch (e) {
+      console.log("This is not a valid private key");
+    }
+  }
+}
 
-  console.log("Connecting to the wallet with WalletConnect");
-  await walletConnect.enable();
-  const networkName = (await provider.getNetwork()).name;
-  const address = await provider.getSigner().getAddress();
-  console.log("Connected to", networkName, "using account", address);
-
-  return provider;
+function askForNetwork(networkUsage: string): string {
+  const networks = ["mainnet", "ropsten"];
+  const query = "Enter the network " + networkUsage;
+  const network = keyInSelect(networks, query, { cancel: false });
+  return networks[network];
 }
 
 function askForAddress(addressUsage: string): string {
