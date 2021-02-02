@@ -32,7 +32,7 @@ export async function testEns(): Promise<void> {
     "the owner of the root ENS and the owner and controller of the 'eth' registrar"
   );
   const signer = await connectPrivateKeySigner();
-  const label = askFor("Enter an 'eth' subdomain to register");
+  const label = askFor("an 'eth' subdomain to register");
   await deploy("ENS", () => deployTestEns(signer, label));
 }
 
@@ -42,7 +42,7 @@ export async function phase0(): Promise<void> {
   const tokensHolder = askForAddress("to hold all the Radicle Tokens");
   const ensAddr = askForAddress("of the ENS");
   const label = askFor(
-    "Enter an 'eth' subdomain on which the registrar should operate"
+    "an 'eth' subdomain on which the registrar should operate"
   );
 
   const token = await deploy("Radicle Token", () =>
@@ -118,16 +118,35 @@ async function connectPrivateKeySigner(): Promise<Signer> {
   const wallet = new Wallet(signingKey, provider);
   const networkName = (await wallet.provider.getNetwork()).name;
   console.log("Connected to", networkName, "using account", wallet.address);
+
+  const defaultGasPrice = await provider.getGasPrice();
+  const gasPrice = askForGasPrice(
+    "to use in all transactions",
+    defaultGasPrice
+  );
+  provider.getGasPrice = function (): Promise<BigNumber> {
+    return Promise.resolve(gasPrice);
+  };
+  // eslint-disable-next-line @typescript-eslint/unbound-method
+  const superSendTransaction = provider.sendTransaction;
+  provider.sendTransaction = async (
+    txBytes
+  ): Promise<providers.TransactionResponse> => {
+    const tx = utils.parseTransaction(await txBytes);
+    console.log("Sending transaction", tx.hash);
+    return superSendTransaction.call(provider, txBytes);
+  };
+
   return wallet;
 }
 
 function askForSigningKey(keyUsage: string): SigningKey {
   for (;;) {
-    const key = askFor("Enter the private key " + keyUsage + ":", true);
+    const key = askFor("the private key " + keyUsage, undefined, true);
     try {
       return new SigningKey(key);
     } catch (e) {
-      console.log("This is not a valid private key");
+      printInvalidInput("private key");
     }
   }
 }
@@ -139,13 +158,28 @@ function askForNetwork(networkUsage: string): string {
   return networks[network];
 }
 
+function askForGasPrice(gasUsage: string, defaultPrice: BigNumber): BigNumber {
+  const giga = 10 ** 9;
+  const question = "gas price " + gasUsage + " in GWei";
+  const defaultPriceGwei = (defaultPrice.toNumber() / giga).toString();
+  for (;;) {
+    const priceStr = askFor(question, defaultPriceGwei);
+    const price = parseFloat(priceStr);
+    if (Number.isFinite(price) && price >= 0) {
+      const priceWei = (price * giga).toFixed();
+      return BigNumber.from(priceWei);
+    }
+    printInvalidInput("amount");
+  }
+}
+
 function askForAddress(addressUsage: string): string {
   for (;;) {
-    const address = askFor("Enter the address " + addressUsage + ":");
+    const address = askFor("the address " + addressUsage);
     if (utils.isAddress(address)) {
       return address;
     }
-    console.log("This is not a valid address");
+    printInvalidInput("address");
   }
 }
 
@@ -160,11 +194,11 @@ function askForAmount(
 
 function askForBigNumber(numberUsage: string): BigNumber {
   for (;;) {
-    const bigNumber = askFor("Enter " + numberUsage + ":");
+    const bigNumber = askFor(numberUsage);
     try {
       return BigNumber.from(bigNumber);
     } catch (e) {
-      console.log("This is not a valid number");
+      printInvalidInput("number");
     }
   }
 }
@@ -172,26 +206,27 @@ function askForBigNumber(numberUsage: string): BigNumber {
 function askForTimestamp(dateUsage: string): number {
   for (;;) {
     const dateStr = askFor(
-      "Enter the date " +
+      "the date " +
         dateUsage +
-        " in the ISO-8601 format, e.g. 2020-01-21, the timezone is UTC if unspecified:"
+        " in the ISO-8601 format, e.g. 2020-01-21, the timezone is UTC if unspecified"
     );
     try {
       const date = new Date(dateStr);
       return date.valueOf() / 1000;
     } catch (e) {
-      console.log("This is not a valid date");
+      printInvalidInput("date");
     }
   }
 }
 
 function askForDaysInSeconds(daysUsage: string): number {
   for (;;) {
-    const daysStr = askFor("Enter " + daysUsage + " in whole days:");
+    const daysStr = askFor(daysUsage + " in whole days");
     const days = parseInt(daysStr);
     if (Number.isInteger(days)) {
       return days * 24 * 60 * 60;
     }
+    printInvalidInput("number");
   }
 }
 
@@ -199,14 +234,24 @@ function askYesNo(query: string): boolean {
   return keyInYNStrict(query);
 }
 
-function askFor(query: string, hideInput = false): string {
-  const options = { hideEchoBack: hideInput };
-  for (;;) {
-    const response = question(query + "\n", options);
-    if (response != "") {
-      return response;
-    }
-  }
+function askFor(
+  query: string,
+  defaultInput?: string,
+  hideInput = false
+): string {
+  const questionDefault =
+    defaultInput === undefined ? "" : " (default: " + defaultInput + ")";
+  const options = {
+    hideEchoBack: hideInput,
+    limit: /./,
+    limitMessage: "",
+    defaultInput,
+  };
+  return question("Enter " + query + questionDefault + ":\n", options);
+}
+
+function printInvalidInput(inputType: string): void {
+  console.log("This is not a valid", inputType);
 }
 
 async function deploy<T extends Contract>(
@@ -227,7 +272,9 @@ async function deploy<T extends Contract>(
       return contract;
     } catch (e) {
       console.log(e);
-      console.log("Retrying");
+      if (askYesNo("Retry?") == false) {
+        throw "Deployment failed";
+      }
     }
   }
 }
