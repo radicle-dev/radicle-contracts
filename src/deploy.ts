@@ -1,7 +1,17 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 import assert from "assert";
-import * as ethers from "ethers";
+import {
+  constants,
+  providers,
+  utils,
+  BigNumber,
+  BigNumberish,
+  Contract,
+  ContractFactory,
+  ContractReceipt,
+  Signer,
+} from "ethers";
 import * as abi from "@ethersproject/abi";
 
 import { BaseRegistrar } from "../contract-bindings/ethers/BaseRegistrar";
@@ -30,7 +40,7 @@ import {
   Treasury__factory,
   VestingToken__factory,
 } from "../contract-bindings/ethers";
-import * as ensUtils from "./ens";
+import { labelHash } from "./ens";
 
 import UniswapV2Factory from "@uniswap/v2-core/build/UniswapV2Factory.json";
 import UniswapV2Router02 from "@uniswap/v2-periphery/build/UniswapV2Router02.json";
@@ -41,10 +51,10 @@ import ENSRegistry from "@ensdomains/ens/build/contracts/ENSRegistry.json";
 import BaseRegistrarImplementation from "@ensdomains/ethregistrar/build/contracts/BaseRegistrarImplementation.json";
 
 export async function nextDeployedContractAddr(
-  signer: ethers.Signer,
+  signer: Signer,
   afterTransactions: number
 ): Promise<string> {
-  return ethers.utils.getContractAddress({
+  return utils.getContractAddress({
     from: await signer.getAddress(),
     nonce: (await signer.getTransactionCount()) + afterTransactions,
   });
@@ -60,9 +70,7 @@ export interface DeployedContracts {
   erc20Pool: Erc20Pool;
 }
 
-export async function deployAll(
-  signer: ethers.Signer
-): Promise<DeployedContracts> {
+export async function deployAll(signer: Signer): Promise<DeployedContracts> {
   const signerAddr = await signer.getAddress();
   const rad = await deployRadicleToken(signer, signerAddr);
   const timelock = await deployTimelock(signer, signerAddr, 2 * 60 * 60 * 24);
@@ -92,21 +100,21 @@ export async function deployAll(
 }
 
 export async function deployRadicleToken(
-  signer: ethers.Signer,
+  signer: Signer,
   account: string
 ): Promise<RadicleToken> {
   return deployOk(new RadicleToken__factory(signer).deploy(account));
 }
 
 export async function deployVestingToken(
-  signer: ethers.Signer,
+  signer: Signer,
   tokenAddr: string,
   owner: string,
   beneficiary: string,
-  amount: ethers.BigNumberish,
-  vestingStartTime: ethers.BigNumberish,
-  vestingPeriod: ethers.BigNumberish,
-  cliffPeriod: ethers.BigNumberish
+  amount: BigNumberish,
+  vestingStartTime: BigNumberish,
+  vestingPeriod: BigNumberish,
+  cliffPeriod: BigNumberish
 ): Promise<VestingToken> {
   const token = IERC20__factory.connect(tokenAddr, signer);
   const vestingAddr = await nextDeployedContractAddr(signer, 1);
@@ -125,7 +133,7 @@ export async function deployVestingToken(
 }
 
 export async function deployRegistrar(
-  signer: ethers.Signer,
+  signer: Signer,
   oracle: string,
   exchange: string,
   token: string,
@@ -136,8 +144,8 @@ export async function deployRegistrar(
   return await deployOk(
     new Registrar__factory(signer).deploy(
       ensAddr,
-      ensUtils.nameHash(label + ".eth"),
-      ensUtils.labelHash(label),
+      utils.namehash(label + ".eth"),
+      labelHash(label),
       oracle,
       exchange,
       token,
@@ -154,22 +162,22 @@ export async function transferEthDomain(
   newOwner: string
 ): Promise<void> {
   const signerAddr = await ens.signer.getAddress();
-  const ethNode = ensUtils.nameHash("eth");
+  const ethNode = utils.namehash("eth");
   const ethRegistrarAddr = await ens.owner(ethNode);
   assert.notStrictEqual(
     ethRegistrarAddr,
-    ethers.constants.AddressZero,
+    constants.AddressZero,
     "No eth registrar found on ENS"
   );
-  const labelNode = ensUtils.nameHash(label + ".eth");
+  const labelNode = utils.namehash(label + ".eth");
   await submitOk(ens.setRecord(labelNode, newOwner, newOwner, 0));
-  const tokenId = ensUtils.labelHash(label);
+  const tokenId = labelHash(label);
   const ethRegistrar = IERC721__factory.connect(ethRegistrarAddr, ens.signer);
   await submitOk(ethRegistrar.transferFrom(signerAddr, newOwner, tokenId));
 }
 
 export async function deployGovernance(
-  signer: ethers.Signer,
+  signer: Signer,
   timelock: string,
   token: string,
   guardian: string
@@ -180,16 +188,16 @@ export async function deployGovernance(
 }
 
 export async function deployTimelock(
-  signer: ethers.Signer,
+  signer: Signer,
   admin: string,
-  delay: ethers.BigNumberish
+  delay: BigNumberish
 ): Promise<Timelock> {
   return deployOk(new Timelock__factory(signer).deploy(admin, delay));
 }
 
 export async function deployExchange(
   radToken: RadicleToken,
-  signer: ethers.Signer
+  signer: Signer
 ): Promise<Exchange> {
   const signerAddr = await signer.getAddress();
 
@@ -215,7 +223,7 @@ export async function deployExchange(
     usdToken.address,
     wethToken.address
   );
-  const usdWethPair = new ethers.Contract(
+  const usdWethPair = new Contract(
     usdWethAddr,
     JSON.stringify(IUniswapV2Pair.abi),
     signer
@@ -236,7 +244,7 @@ export async function deployExchange(
     wethToken.address,
     radToken.address
   );
-  const wethRadPair = new ethers.Contract(
+  const wethRadPair = new Contract(
     wethRadAddr,
     JSON.stringify(IUniswapV2Pair.abi),
     signer
@@ -275,14 +283,14 @@ export async function deployExchange(
 }
 
 export async function deployEthPool(
-  signer: ethers.Signer,
+  signer: Signer,
   cycleBlocks: number
 ): Promise<EthPool> {
   return deployOk(new EthPool__factory(signer).deploy(cycleBlocks));
 }
 
 export async function deployErc20Pool(
-  signer: ethers.Signer,
+  signer: Signer,
   cycleBlocks: number,
   erc20TokenAddress: string
 ): Promise<Erc20Pool> {
@@ -292,7 +300,7 @@ export async function deployErc20Pool(
 }
 
 export async function deployTreasury(
-  signer: ethers.Signer,
+  signer: Signer,
   admin: string
 ): Promise<Treasury> {
   return deployOk(new Treasury__factory(signer).deploy(admin));
@@ -301,7 +309,7 @@ export async function deployTreasury(
 // The signer becomes an owner of the '', 'eth' and '<label>.eth' domains,
 // the owner of the root ENS and the owner and controller of the 'eth' registrar
 export async function deployTestEns(
-  signer: ethers.Signer,
+  signer: Signer,
   label: string
 ): Promise<ENS> {
   const signerAddr = await signer.getAddress();
@@ -309,23 +317,21 @@ export async function deployTestEns(
   const ethRegistrar = (await deployContract(
     signer,
     BaseRegistrarImplementation,
-    [ens.address, ensUtils.nameHash("eth")]
+    [ens.address, utils.namehash("eth")]
   )) as BaseRegistrar;
   await submitOk(
     ens.setSubnodeOwner(
-      ensUtils.nameHash(""),
-      ensUtils.labelHash("eth"),
+      utils.namehash(""),
+      labelHash("eth"),
       ethRegistrar.address
     )
   );
   await submitOk(ethRegistrar.addController(signerAddr));
-  await submitOk(
-    ethRegistrar.register(ensUtils.labelHash(label), signerAddr, 10 ** 10)
-  );
+  await submitOk(ethRegistrar.register(labelHash(label), signerAddr, 10 ** 10));
   return ens;
 }
 
-async function deployOk<T extends ethers.Contract>(
+async function deployOk<T extends Contract>(
   contractPromise: Promise<T>
 ): Promise<T> {
   const contract = await contractPromise;
@@ -334,8 +340,8 @@ async function deployOk<T extends ethers.Contract>(
 }
 
 export async function submitOk(
-  tx: Promise<ethers.providers.TransactionResponse>
-): Promise<ethers.ContractReceipt> {
+  tx: Promise<providers.TransactionResponse>
+): Promise<ContractReceipt> {
   const receipt = await (await tx).wait();
   assert.strictEqual(receipt.status, 1, "transaction must be successful");
   return receipt;
@@ -347,11 +353,11 @@ interface CompilerOutput {
 }
 
 async function deployContract(
-  signer: ethers.Signer,
+  signer: Signer,
   compilerOutput: CompilerOutput,
   args: Array<unknown>
-): Promise<ethers.Contract> {
-  const factory = new ethers.ContractFactory(
+): Promise<Contract> {
+  const factory = new ContractFactory(
     compilerOutput.abi,
     compilerOutput.bytecode,
     signer
@@ -359,6 +365,6 @@ async function deployContract(
   return deployOk(factory.deploy(...args));
 }
 
-function toDecimals(n: number, exp: number): ethers.BigNumber {
-  return ethers.BigNumber.from(n).mul(ethers.BigNumber.from(10).pow(exp));
+function toDecimals(n: number, exp: number): BigNumber {
+  return BigNumber.from(n).mul(BigNumber.from(10).pow(exp));
 }

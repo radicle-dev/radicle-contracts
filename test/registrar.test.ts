@@ -2,7 +2,6 @@ import { ethers } from "hardhat";
 import { assert } from "chai";
 import { submit, elapseTime } from "./support";
 import { deployAll } from "../src/deploy";
-import * as ensUtils from "../src/ens";
 
 describe("Registrar", function () {
   it("should allow registration of names with Radicle tokens", async function () {
@@ -31,7 +30,7 @@ describe("Registrar", function () {
       registrar.connect(registrant).registerRad("cloudhead", registrantAddr)
     );
     assert.equal(
-      await ens.owner(ensUtils.nameHash("cloudhead.radicle.eth")),
+      await ens.owner(ethers.utils.namehash("cloudhead.radicle.eth")),
       registrantAddr
     );
     assert(!(await registrar.available("cloudhead")));
@@ -64,13 +63,13 @@ describe("Registrar", function () {
     const newOwnerAddr = await newOwner.getAddress();
 
     assert.equal(
-      await ens.owner(ensUtils.nameHash("radicle.eth")),
+      await ens.owner(ethers.utils.namehash("radicle.eth")),
       registrar.address
     );
     await submit(registrar.connect(owner).setDomainOwner(newOwnerAddr));
 
     assert.equal(
-      await ens.owner(ensUtils.nameHash("radicle.eth")),
+      await ens.owner(ethers.utils.namehash("radicle.eth")),
       newOwnerAddr
     );
   });
