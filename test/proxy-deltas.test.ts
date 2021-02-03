@@ -40,9 +40,7 @@ describe("ProxyDeltas", function () {
   it("Keeps a single added item", async function () {
     const deltasTest = await deployProxyDeltasTest();
 
-    await deltasTest.addToDeltas(0, [
-      { cycle: 1, thisCycleDelta: 1, nextCycleDelta: 0 },
-    ]);
+    await deltasTest.addToDeltas(0, [{ cycle: 1, thisCycleDelta: 1, nextCycleDelta: 0 }]);
 
     const deltas = await deltasTest.getProxyDeltasIterated();
     assert(deltas.length == 1);
@@ -220,9 +218,7 @@ describe("ProxyDeltas", function () {
     assert(deltas.length == 0);
 
     // Add an item
-    await deltasTest.addToDeltas(0, [
-      { cycle: 1, thisCycleDelta: 2, nextCycleDelta: 0 },
-    ]);
+    await deltasTest.addToDeltas(0, [{ cycle: 1, thisCycleDelta: 2, nextCycleDelta: 0 }]);
 
     deltas = await deltasTest.getProxyDeltasIterated();
     assert(deltas.length == 1);
@@ -318,9 +314,7 @@ describe("ProxyDeltas", function () {
   it("Keeps items with only next delta set", async function () {
     const deltasTest = await deployProxyDeltasTest();
 
-    await deltasTest.addToDeltas(0, [
-      { cycle: 1, thisCycleDelta: 0, nextCycleDelta: 1 },
-    ]);
+    await deltasTest.addToDeltas(0, [{ cycle: 1, thisCycleDelta: 0, nextCycleDelta: 1 }]);
 
     const deltas = await deltasTest.getProxyDeltasIterated();
     assert(deltas.length == 1);

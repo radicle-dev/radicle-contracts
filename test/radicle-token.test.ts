@@ -22,10 +22,7 @@ import { deployRadicleToken } from "../src/deploy";
 
 async function getRadicleTokenSigners(): Promise<RadicleToken[]> {
   const signers = await ethers.getSigners();
-  const token = await deployRadicleToken(
-    signers[0],
-    await signers[0].getAddress()
-  );
+  const token = await deployRadicleToken(signers[0], await signers[0].getAddress());
   return signers.map((signer) => token.connect(signer));
 }
 
@@ -38,10 +35,7 @@ async function transfer(
   return submit(from.transfer(addr, amount), "transfer");
 }
 
-async function delegate(
-  from: RadicleToken,
-  to: RadicleToken
-): Promise<ContractReceipt> {
+async function delegate(from: RadicleToken, to: RadicleToken): Promise<ContractReceipt> {
   const addr = await to.signer.getAddress();
   return submit(from.delegate(addr), "delegate");
 }
@@ -89,19 +83,13 @@ async function expectDelegateBySigFail(
   );
 }
 
-async function expectDelegation(
-  token: RadicleToken,
-  expectedDelegation: string
-): Promise<void> {
+async function expectDelegation(token: RadicleToken, expectedDelegation: string): Promise<void> {
   const address = await token.signer.getAddress();
   const actualDelegation = await token.delegates(address);
   expect(actualDelegation).to.equal(expectedDelegation, "Invalid delegation");
 }
 
-async function expectNumCheckpoint(
-  token: RadicleToken,
-  expected: number
-): Promise<void> {
+async function expectNumCheckpoint(token: RadicleToken, expected: number): Promise<void> {
   const actual = await token.numCheckpoints(await token.signer.getAddress());
   expectBigNumberEq(actual, expected, "Invalid number of checkpoints");
 }
@@ -114,16 +102,8 @@ async function expectCheckpoints(
   const addr = await token.signer.getAddress();
   for (const [i, [expectedBlock, expectedVotes]] of expected.entries()) {
     const [actualBlock, actualVotes] = await token.checkpoints(addr, i);
-    expectBigNumberEq(
-      actualBlock,
-      expectedBlock,
-      `Invalid block number for checkpoint ${i}`
-    );
-    expectBigNumberEq(
-      actualVotes,
-      expectedVotes,
-      `Invalid number of votes for checkpoint ${i}`
-    );
+    expectBigNumberEq(actualBlock, expectedBlock, `Invalid block number for checkpoint ${i}`);
+    expectBigNumberEq(actualVotes, expectedVotes, `Invalid number of votes for checkpoint ${i}`);
   }
 }
 
@@ -181,34 +161,15 @@ describe("Radicle Token", () => {
       const [delegator, delegatee] = await getRadicleTokenSigners();
       const nonce = 1;
       const expiry = 10e9;
-      const { v, r, s } = await signDelegation(
-        delegator,
-        delegatee,
-        nonce,
-        expiry
-      );
-      await expectDelegateBySigFail(
-        delegator,
-        delegatee,
-        nonce,
-        expiry,
-        v,
-        r,
-        s,
-        "invalid nonce"
-      );
+      const { v, r, s } = await signDelegation(delegator, delegatee, nonce, expiry);
+      await expectDelegateBySigFail(delegator, delegatee, nonce, expiry, v, r, s, "invalid nonce");
     });
 
     it("reverts if the signature has expired", async () => {
       const [delegator, delegatee] = await getRadicleTokenSigners();
       const nonce = 0;
       const expiry = 0;
-      const { v, r, s } = await signDelegation(
-        delegator,
-        delegatee,
-        nonce,
-        expiry
-      );
+      const { v, r, s } = await signDelegation(delegator, delegatee, nonce, expiry);
 
       await expectDelegateBySigFail(
         delegator,
@@ -227,18 +188,10 @@ describe("Radicle Token", () => {
       const delegateeAddr = await delegatee.signer.getAddress();
       const nonce = 0;
       const expiry = 10e9;
-      const { v, r, s } = await signDelegation(
-        delegator,
-        delegatee,
-        nonce,
-        expiry
-      );
+      const { v, r, s } = await signDelegation(delegator, delegatee, nonce, expiry);
 
       await expectDelegation(delegator, constants.AddressZero);
-      await submit(
-        delegatee.delegateBySig(delegateeAddr, nonce, expiry, v, r, s),
-        "delegateBySig"
-      );
+      await submit(delegatee.delegateBySig(delegateeAddr, nonce, expiry, v, r, s), "delegateBySig");
       await expectDelegation(delegator, delegateeAddr);
     });
   });

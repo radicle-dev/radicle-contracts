@@ -74,12 +74,7 @@ export async function deployAll(signer: Signer): Promise<DeployedContracts> {
   const signerAddr = await signer.getAddress();
   const rad = await deployRadicleToken(signer, signerAddr);
   const timelock = await deployTimelock(signer, signerAddr, 2 * 60 * 60 * 24);
-  const gov = await deployGovernance(
-    signer,
-    timelock.address,
-    rad.address,
-    signerAddr
-  );
+  const gov = await deployGovernance(signer, timelock.address, rad.address, signerAddr);
   const exchange = await deployExchange(rad, signer);
   const label = "radicle";
   const ens = await deployTestEns(signer, label);
@@ -99,10 +94,7 @@ export async function deployAll(signer: Signer): Promise<DeployedContracts> {
   return { gov, rad, exchange, registrar, ens, ethPool, erc20Pool };
 }
 
-export async function deployRadicleToken(
-  signer: Signer,
-  account: string
-): Promise<RadicleToken> {
+export async function deployRadicleToken(signer: Signer, account: string): Promise<RadicleToken> {
   return deployOk(new RadicleToken__factory(signer).deploy(account));
 }
 
@@ -156,19 +148,11 @@ export async function deployRegistrar(
 
 // The ENS signer must be the owner of the domain.
 // The new owner becomes the registrant, owner and resolver of the domain.
-export async function transferEthDomain(
-  ens: ENS,
-  label: string,
-  newOwner: string
-): Promise<void> {
+export async function transferEthDomain(ens: ENS, label: string, newOwner: string): Promise<void> {
   const signerAddr = await ens.signer.getAddress();
   const ethNode = utils.namehash("eth");
   const ethRegistrarAddr = await ens.owner(ethNode);
-  assert.notStrictEqual(
-    ethRegistrarAddr,
-    constants.AddressZero,
-    "No eth registrar found on ENS"
-  );
+  assert.notStrictEqual(ethRegistrarAddr, constants.AddressZero, "No eth registrar found on ENS");
   const labelNode = utils.namehash(label + ".eth");
   await submitOk(ens.setRecord(labelNode, newOwner, newOwner, 0));
   const tokenId = labelHash(label);
@@ -182,9 +166,7 @@ export async function deployGovernance(
   token: string,
   guardian: string
 ): Promise<Governor> {
-  return deployOk(
-    new Governor__factory(signer).deploy(timelock, token, guardian)
-  );
+  return deployOk(new Governor__factory(signer).deploy(timelock, token, guardian));
 }
 
 export async function deployTimelock(
@@ -195,10 +177,7 @@ export async function deployTimelock(
   return deployOk(new Timelock__factory(signer).deploy(admin, delay));
 }
 
-export async function deployExchange(
-  radToken: RadicleToken,
-  signer: Signer
-): Promise<Exchange> {
+export async function deployExchange(radToken: RadicleToken, signer: Signer): Promise<Exchange> {
   const signerAddr = await signer.getAddress();
 
   // Deploy tokens
@@ -219,15 +198,8 @@ export async function deployExchange(
 
   // Create USD/WETH pair
   await factory.createPair(usdToken.address, wethToken.address);
-  const usdWethAddr = await factory.getPair(
-    usdToken.address,
-    wethToken.address
-  );
-  const usdWethPair = new Contract(
-    usdWethAddr,
-    JSON.stringify(IUniswapV2Pair.abi),
-    signer
-  );
+  const usdWethAddr = await factory.getPair(usdToken.address, wethToken.address);
+  const usdWethPair = new Contract(usdWethAddr, JSON.stringify(IUniswapV2Pair.abi), signer);
 
   // Transfer USD into the USD/WETH pair.
   await usdToken.transfer(usdWethAddr, toDecimals(10, 18));
@@ -240,15 +212,8 @@ export async function deployExchange(
 
   // Create WETH/RAD pair
   await factory.createPair(wethToken.address, radToken.address);
-  const wethRadAddr = await factory.getPair(
-    wethToken.address,
-    radToken.address
-  );
-  const wethRadPair = new Contract(
-    wethRadAddr,
-    JSON.stringify(IUniswapV2Pair.abi),
-    signer
-  );
+  const wethRadAddr = await factory.getPair(wethToken.address, radToken.address);
+  const wethRadPair = new Contract(wethRadAddr, JSON.stringify(IUniswapV2Pair.abi), signer);
 
   // Transfer RAD into the WETH/RAD pair.
   await radToken.transfer(wethRadAddr, toDecimals(10, 18));
@@ -272,20 +237,13 @@ export async function deployExchange(
   );
 
   const exchange = await deployOk(
-    new Exchange__factory(signer).deploy(
-      radToken.address,
-      router.address,
-      oracle.address
-    )
+    new Exchange__factory(signer).deploy(radToken.address, router.address, oracle.address)
   );
 
   return exchange;
 }
 
-export async function deployEthPool(
-  signer: Signer,
-  cycleBlocks: number
-): Promise<EthPool> {
+export async function deployEthPool(signer: Signer, cycleBlocks: number): Promise<EthPool> {
   return deployOk(new EthPool__factory(signer).deploy(cycleBlocks));
 }
 
@@ -294,46 +252,29 @@ export async function deployErc20Pool(
   cycleBlocks: number,
   erc20TokenAddress: string
 ): Promise<Erc20Pool> {
-  return deployOk(
-    new Erc20Pool__factory(signer).deploy(cycleBlocks, erc20TokenAddress)
-  );
+  return deployOk(new Erc20Pool__factory(signer).deploy(cycleBlocks, erc20TokenAddress));
 }
 
-export async function deployTreasury(
-  signer: Signer,
-  admin: string
-): Promise<Treasury> {
+export async function deployTreasury(signer: Signer, admin: string): Promise<Treasury> {
   return deployOk(new Treasury__factory(signer).deploy(admin));
 }
 
 // The signer becomes an owner of the '', 'eth' and '<label>.eth' domains,
 // the owner of the root ENS and the owner and controller of the 'eth' registrar
-export async function deployTestEns(
-  signer: Signer,
-  label: string
-): Promise<ENS> {
+export async function deployTestEns(signer: Signer, label: string): Promise<ENS> {
   const signerAddr = await signer.getAddress();
   const ens = (await deployContract(signer, ENSRegistry, [])) as ENS;
-  const ethRegistrar = (await deployContract(
-    signer,
-    BaseRegistrarImplementation,
-    [ens.address, utils.namehash("eth")]
-  )) as BaseRegistrar;
-  await submitOk(
-    ens.setSubnodeOwner(
-      utils.namehash(""),
-      labelHash("eth"),
-      ethRegistrar.address
-    )
-  );
+  const ethRegistrar = (await deployContract(signer, BaseRegistrarImplementation, [
+    ens.address,
+    utils.namehash("eth"),
+  ])) as BaseRegistrar;
+  await submitOk(ens.setSubnodeOwner(utils.namehash(""), labelHash("eth"), ethRegistrar.address));
   await submitOk(ethRegistrar.addController(signerAddr));
   await submitOk(ethRegistrar.register(labelHash(label), signerAddr, 10 ** 10));
   return ens;
 }
 
-async function deployOk<T extends Contract>(
-  contractPromise: Promise<T>
-): Promise<T> {
+async function deployOk<T extends Contract>(contractPromise: Promise<T>): Promise<T> {
   const contract = await contractPromise;
   await contract.deployed();
   return contract;
@@ -357,11 +298,7 @@ async function deployContract(
   compilerOutput: CompilerOutput,
   args: Array<unknown>
 ): Promise<Contract> {
-  const factory = new ContractFactory(
-    compilerOutput.abi,
-    compilerOutput.bytecode,
-    signer
-  );
+  const factory = new ContractFactory(compilerOutput.abi, compilerOutput.bytecode, signer);
   return deployOk(factory.deploy(...args));
 }
 

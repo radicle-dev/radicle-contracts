@@ -21,10 +21,7 @@ describe("Vesting token", function () {
       300,
       400
     );
-    await submit(
-      vesting.connect(beneficiary).withdrawVested(),
-      "withdrawVested"
-    );
+    await submit(vesting.connect(beneficiary).withdrawVested(), "withdrawVested");
     const balance = await token.balanceOf(beneficiaryAddr);
     expectBigNumberEq(balance, vestedAmt, "Invalid amount gained from vesting");
   });

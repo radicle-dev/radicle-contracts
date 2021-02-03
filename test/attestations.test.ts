@@ -20,9 +20,7 @@ describe("Attestations", function () {
   it("should allow attestations to be made and revoked", async function () {
     const [signer] = await ethers.getSigners();
     const address = await signer.getAddress();
-    const attestationRegistry = await new AttestationRegistry__factory(
-      signer
-    ).deploy();
+    const attestationRegistry = await new AttestationRegistry__factory(signer).deploy();
     await attestationRegistry.deployed();
 
     const id = ethers.utils.randomBytes(32);

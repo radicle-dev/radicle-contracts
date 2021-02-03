@@ -19,9 +19,7 @@ describe("Treasury", function () {
 
     const founderBalance = await founder.getBalance();
 
-    await submitFailing(
-      treasury.connect(thief).withdraw(ethers.constants.AddressZero, amount)
-    );
+    await submitFailing(treasury.connect(thief).withdraw(ethers.constants.AddressZero, amount));
     await submit(treasury.connect(admin).withdraw(founderAddress, amount));
 
     assert((await founder.getBalance()).eq(founderBalance.add(amount)));

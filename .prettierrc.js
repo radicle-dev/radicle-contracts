@@ -1,12 +1,16 @@
 module.exports = {
   overrides: [
     {
+      files: "*.ts",
+      options: {
+        printWidth: 100,
+      },
+    },
+    {
       files: "*.sol",
       options: {
         printWidth: 100,
         tabWidth: 4,
-        useTabs: false,
-        singleQuote: false,
         bracketSpacing: false,
         explicitTypes: "always",
       },

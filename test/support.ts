@@ -1,18 +1,10 @@
-import {
-  BigNumber,
-  BigNumberish,
-  ContractReceipt,
-  ContractTransaction,
-  utils,
-} from "ethers";
+import { BigNumber, BigNumberish, ContractReceipt, ContractTransaction, utils } from "ethers";
 import { expect } from "chai";
 import { ethers, network } from "hardhat";
 
 export { nextDeployedContractAddr } from "../src/deploy";
 
-export async function wait(
-  response: Promise<ContractTransaction>
-): Promise<ContractReceipt> {
+export async function wait(response: Promise<ContractTransaction>): Promise<ContractReceipt> {
   return (await response).wait();
 }
 
@@ -54,14 +46,8 @@ export async function expectTxFail<T>(
       if (!(error instanceof Error)) {
         throw error;
       }
-      const cause = error.message.replace(
-        "VM Exception while processing transaction: revert ",
-        ""
-      );
-      expect(cause).to.equal(
-        expectedCause,
-        txName + " failed because of an unexpected reason"
-      );
+      const cause = error.message.replace("VM Exception while processing transaction: revert ", "");
+      expect(cause).to.equal(expectedCause, txName + " failed because of an unexpected reason");
     }
     return;
   }

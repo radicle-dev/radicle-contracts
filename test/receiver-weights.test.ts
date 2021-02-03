@@ -1,7 +1,4 @@
-import {
-  ReceiverWeightsTest,
-  ReceiverWeightsTest__factory,
-} from "../contract-bindings/ethers";
+import { ReceiverWeightsTest, ReceiverWeightsTest__factory } from "../contract-bindings/ethers";
 import { ethers } from "hardhat";
 import { BigNumberish } from "ethers";
 import { assert } from "chai";
@@ -21,11 +18,7 @@ async function expectSetWeightsWithInvalidAddressReverts(
     weightProxy: BigNumberish;
   }[]
 ): Promise<void> {
-  await submitFailing(
-    weightsTest.setWeights(weights),
-    "setWeights",
-    "Invalid receiver address"
-  );
+  await submitFailing(weightsTest.setWeights(weights), "setWeights", "Invalid receiver address");
 }
 
 describe("ReceiverWeights", function () {
@@ -44,9 +37,7 @@ describe("ReceiverWeights", function () {
     const weightsTest = await deployReceiverWeightsTest();
     const [addr1] = randomAddresses();
 
-    await weightsTest.setWeights([
-      { receiver: addr1, weightReceiver: 1, weightProxy: 0 },
-    ]);
+    await weightsTest.setWeights([{ receiver: addr1, weightReceiver: 1, weightProxy: 0 }]);
 
     assert((await weightsTest.weightReceiverSumDelta()).eq(1));
     assert((await weightsTest.weightProxySumDelta()).eq(0));
@@ -206,9 +197,7 @@ describe("ReceiverWeights", function () {
       { receiver: addr3, weightReceiver: 0, weightProxy: 0 },
     ]);
 
-    assert(
-      (await weightsTest.weightReceiverSumDelta()).eq(1 + 2 + 4 + 8 - 2 - 4)
-    );
+    assert((await weightsTest.weightReceiverSumDelta()).eq(1 + 2 + 4 + 8 - 2 - 4));
     assert((await weightsTest.weightProxySumDelta()).eq(0));
     const weights = await weightsTest.getReceiverWeightsIterated();
     assert(weights.length == 2);
@@ -233,9 +222,7 @@ describe("ReceiverWeights", function () {
       { receiver: addr3, weightReceiver: 0, weightProxy: 0 },
     ]);
 
-    assert(
-      (await weightsTest.weightReceiverSumDelta()).eq(1 + 2 + 4 - 1 - 2 - 4)
-    );
+    assert((await weightsTest.weightReceiverSumDelta()).eq(1 + 2 + 4 - 1 - 2 - 4));
     assert((await weightsTest.weightProxySumDelta()).eq(0));
     const weights = await weightsTest.getReceiverWeightsIterated();
     assert(weights.length == 0);
@@ -257,9 +244,7 @@ describe("ReceiverWeights", function () {
     assert(weights.length == 0);
 
     // Add an item
-    await weightsTest.setWeights([
-      { receiver: addr1, weightReceiver: 2, weightProxy: 0 },
-    ]);
+    await weightsTest.setWeights([{ receiver: addr1, weightReceiver: 2, weightProxy: 0 }]);
 
     assert((await weightsTest.weightReceiverSumDelta()).eq(2));
     assert((await weightsTest.weightProxySumDelta()).eq(0));
@@ -359,9 +344,7 @@ describe("ReceiverWeights", function () {
     const weightsTest = await deployReceiverWeightsTest();
     const [addr1] = randomAddresses();
 
-    await weightsTest.setWeights([
-      { receiver: addr1, weightReceiver: 0, weightProxy: 1 },
-    ]);
+    await weightsTest.setWeights([{ receiver: addr1, weightReceiver: 0, weightProxy: 1 }]);
 
     assert((await weightsTest.weightReceiverSumDelta()).eq(0));
     assert((await weightsTest.weightProxySumDelta()).eq(1));

@@ -1,9 +1,5 @@
 import { ethers } from "hardhat";
-import {
-  deployGovernance,
-  deployTimelock,
-  deployRadicleToken,
-} from "../src/deploy";
+import { deployGovernance, deployTimelock, deployRadicleToken } from "../src/deploy";
 
 describe("Governance", function () {
   it("should deploy without errors", async function () {

@@ -26,13 +26,8 @@ describe("Registrar", function () {
     assert(await registrar.available("treehead"));
 
     // Register `cloudhead.radicle.eth`.
-    await submit(
-      registrar.connect(registrant).registerRad("cloudhead", registrantAddr)
-    );
-    assert.equal(
-      await ens.owner(ethers.utils.namehash("cloudhead.radicle.eth")),
-      registrantAddr
-    );
+    await submit(registrar.connect(registrant).registerRad("cloudhead", registrantAddr));
+    assert.equal(await ens.owner(ethers.utils.namehash("cloudhead.radicle.eth")), registrantAddr);
     assert(!(await registrar.available("cloudhead")));
 
     // Check that the burn happened.
@@ -62,15 +57,9 @@ describe("Registrar", function () {
     const { ens, registrar } = await deployAll(owner);
     const newOwnerAddr = await newOwner.getAddress();
 
-    assert.equal(
-      await ens.owner(ethers.utils.namehash("radicle.eth")),
-      registrar.address
-    );
+    assert.equal(await ens.owner(ethers.utils.namehash("radicle.eth")), registrar.address);
     await submit(registrar.connect(owner).setDomainOwner(newOwnerAddr));
 
-    assert.equal(
-      await ens.owner(ethers.utils.namehash("radicle.eth")),
-      newOwnerAddr
-    );
+    assert.equal(await ens.owner(ethers.utils.namehash("radicle.eth")), newOwnerAddr);
   });
 });

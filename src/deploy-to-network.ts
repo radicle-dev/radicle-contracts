@@ -9,15 +9,7 @@ import {
   nextDeployedContractAddr,
 } from "./deploy";
 import assert from "assert";
-import {
-  BigNumber,
-  Contract,
-  Wallet,
-  Signer,
-  constants,
-  providers,
-  utils,
-} from "ethers";
+import { BigNumber, Contract, Wallet, Signer, constants, providers, utils } from "ethers";
 import SigningKey = utils.SigningKey;
 import { keyInSelect, keyInYNStrict, question } from "readline-sync";
 import { ERC20__factory } from "../contract-bindings/ethers";
@@ -25,12 +17,8 @@ import { ERC20__factory } from "../contract-bindings/ethers";
 const INFURA_ID = "de5e2a8780c04964950e73b696d1bfb1";
 
 export async function testEns(): Promise<void> {
-  console.log(
-    "The deployer will become an owner of the '', 'eth' and '<domain>.eth' domains,"
-  );
-  console.log(
-    "the owner of the root ENS and the owner and controller of the 'eth' registrar"
-  );
+  console.log("The deployer will become an owner of the '', 'eth' and '<domain>.eth' domains,");
+  console.log("the owner of the root ENS and the owner and controller of the 'eth' registrar");
   const signer = await connectPrivateKeySigner();
   const label = askFor("an 'eth' subdomain to register");
   await deploy("ENS", () => deployTestEns(signer, label));
@@ -41,19 +29,13 @@ export async function phase0(): Promise<void> {
   const govGuardian = askForAddress("of the governor guardian");
   const tokensHolder = askForAddress("to hold all the Radicle Tokens");
   const ensAddr = askForAddress("of the ENS");
-  const label = askFor(
-    "an 'eth' subdomain on which the registrar should operate"
-  );
+  const label = askFor("an 'eth' subdomain on which the registrar should operate");
 
-  const token = await deploy("Radicle Token", () =>
-    deployRadicleToken(signer, tokensHolder)
-  );
+  const token = await deploy("Radicle Token", () => deployRadicleToken(signer, tokensHolder));
 
   const govAddr = await nextDeployedContractAddr(signer, 1);
   const delay = 60 * 60 * 24 * 2;
-  const timelock = await deploy("timelock", () =>
-    deployTimelock(signer, govAddr, delay)
-  );
+  const timelock = await deploy("timelock", () => deployTimelock(signer, govAddr, delay));
   const timelockAddr = timelock.address;
 
   const governance = await deploy("governance", () =>
@@ -120,18 +102,13 @@ async function connectPrivateKeySigner(): Promise<Signer> {
   console.log("Connected to", networkName, "using account", wallet.address);
 
   const defaultGasPrice = await provider.getGasPrice();
-  const gasPrice = askForGasPrice(
-    "to use in all transactions",
-    defaultGasPrice
-  );
+  const gasPrice = askForGasPrice("to use in all transactions", defaultGasPrice);
   provider.getGasPrice = function (): Promise<BigNumber> {
     return Promise.resolve(gasPrice);
   };
   // eslint-disable-next-line @typescript-eslint/unbound-method
   const superSendTransaction = provider.sendTransaction;
-  provider.sendTransaction = async (
-    txBytes
-  ): Promise<providers.TransactionResponse> => {
+  provider.sendTransaction = async (txBytes): Promise<providers.TransactionResponse> => {
     const tx = utils.parseTransaction(await txBytes);
     console.log("Sending transaction", tx.hash);
     return superSendTransaction.call(provider, txBytes);
@@ -183,11 +160,7 @@ function askForAddress(addressUsage: string): string {
   }
 }
 
-function askForAmount(
-  amountUsage: string,
-  decimals: number,
-  symbol: string
-): BigNumber {
+function askForAmount(amountUsage: string, decimals: number, symbol: string): BigNumber {
   const amount = askForBigNumber("amount " + amountUsage + " in " + symbol);
   return BigNumber.from(10).pow(decimals).mul(amount);
 }
@@ -234,13 +207,8 @@ function askYesNo(query: string): boolean {
   return keyInYNStrict(query);
 }
 
-function askFor(
-  query: string,
-  defaultInput?: string,
-  hideInput = false
-): string {
-  const questionDefault =
-    defaultInput === undefined ? "" : " (default: " + defaultInput + ")";
+function askFor(query: string, defaultInput?: string, hideInput = false): string {
+  const questionDefault = defaultInput === undefined ? "" : " (default: " + defaultInput + ")";
   const options = {
     hideEchoBack: hideInput,
     limit: /./,
@@ -254,21 +222,12 @@ function printInvalidInput(inputType: string): void {
   console.log("This is not a valid", inputType);
 }
 
-async function deploy<T extends Contract>(
-  name: string,
-  fn: () => Promise<T>
-): Promise<T> {
+async function deploy<T extends Contract>(name: string, fn: () => Promise<T>): Promise<T> {
   for (;;) {
     try {
       console.log("Deploying", name, "contract");
       const contract = await fn();
-      console.log(
-        "Deployed",
-        name,
-        "contract",
-        "under address",
-        contract.address
-      );
+      console.log("Deployed", name, "contract", "under address", contract.address);
       return contract;
     } catch (e) {
       console.log(e);

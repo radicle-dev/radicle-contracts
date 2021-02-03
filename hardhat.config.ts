@@ -26,9 +26,7 @@ export default {
 };
 
 // Additional contracts to generate TypeScript bindings for
-const contracts = [
-  "node_modules/@ensdomains/ethregistrar/build/contracts/BaseRegistrar.json",
-];
+const contracts = ["node_modules/@ensdomains/ethregistrar/build/contracts/BaseRegistrar.json"];
 
 task(TASK_COMPILE).setAction(async (_, runtime, runSuper) => {
   await runSuper();
@@ -39,16 +37,14 @@ task(TASK_COMPILE).setAction(async (_, runtime, runSuper) => {
   console.log(`Successfully generated Typechain artifacts!`);
 });
 
-task(TASK_COMPILE_SOLIDITY_GET_COMPILER_INPUT).setAction(
-  async (_, __, runSuper) => {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const input = await runSuper();
-    // eslint-disable-next-line
-    input.settings.outputSelection["*"]["*"].push("storageLayout");
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return input;
-  }
-);
+task(TASK_COMPILE_SOLIDITY_GET_COMPILER_INPUT).setAction(async (_, __, runSuper) => {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+  const input = await runSuper();
+  // eslint-disable-next-line
+  input.settings.outputSelection["*"]["*"].push("storageLayout");
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+  return input;
+});
 
 async function typeChain(files: string, modulePath: string): Promise<void> {
   const outDir = "./contract-bindings";
