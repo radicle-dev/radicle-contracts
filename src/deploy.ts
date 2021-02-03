@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
 import assert from "assert";
 import {
   constants,
@@ -8,13 +6,9 @@ import {
   BigNumber,
   BigNumberish,
   Contract,
-  ContractFactory,
   ContractReceipt,
   Signer,
 } from "ethers";
-import * as abi from "@ethersproject/abi";
-
-import { BaseRegistrar } from "../contract-bindings/ethers/BaseRegistrar";
 import { ENS } from "../contract-bindings/ethers/ENS";
 import { EthPool } from "../contract-bindings/ethers/EthPool";
 import { Exchange } from "../contract-bindings/ethers/Exchange";
@@ -25,30 +19,28 @@ import { Timelock } from "../contract-bindings/ethers/Timelock";
 import { Treasury } from "../contract-bindings/ethers/Treasury";
 import { VestingToken } from "../contract-bindings/ethers/VestingToken";
 import {
-  IERC20__factory,
+  BaseRegistrarImplementation__factory,
+  ENSRegistry__factory,
   Erc20Pool__factory,
   Erc20Pool,
   EthPool__factory,
   Exchange__factory,
   FixedWindowOracle__factory,
   Governor__factory,
+  IERC20__factory,
   IERC721__factory,
   RadicleToken__factory,
   Registrar__factory,
   StablePriceOracle__factory,
   Timelock__factory,
   Treasury__factory,
+  UniswapV2Factory__factory,
+  IUniswapV2Pair__factory,
+  UniswapV2Router02__factory,
   VestingToken__factory,
+  WETH9__factory,
 } from "../contract-bindings/ethers";
 import { labelHash } from "./ens";
-
-import UniswapV2Factory from "@uniswap/v2-core/build/UniswapV2Factory.json";
-import UniswapV2Router02 from "@uniswap/v2-periphery/build/UniswapV2Router02.json";
-import ERC20 from "@uniswap/v2-periphery/build/ERC20.json";
-import WETH9 from "@uniswap/v2-periphery/build/WETH9.json";
-import IUniswapV2Pair from "@uniswap/v2-core/build/IUniswapV2Pair.json";
-import ENSRegistry from "@ensdomains/ens/build/contracts/ENSRegistry.json";
-import BaseRegistrarImplementation from "@ensdomains/ethregistrar/build/contracts/BaseRegistrarImplementation.json";
 
 export async function nextDeployedContractAddr(
   signer: Signer,
@@ -178,34 +170,37 @@ export async function deployTimelock(
 }
 
 export async function deployExchange(radToken: RadicleToken, signer: Signer): Promise<Exchange> {
+  const radDecimals = await radToken.decimals();
   const signerAddr = await signer.getAddress();
 
   // Deploy tokens
-  const usdToken = await deployContract(signer, ERC20, [toDecimals(10000, 18)]);
-  const wethToken = await deployContract(signer, WETH9, []);
+  // Any ERC20 token will be good
+  const usdToken = await deployRadicleToken(signer, signerAddr);
+  const usdDecimals = await usdToken.decimals();
+  const wethToken = await deployOk(new WETH9__factory(signer).deploy());
+  const wethDecimals = await wethToken.decimals();
 
   // Deposit ETH into WETH contract
-  await submitOk(wethToken.deposit({ value: toDecimals(100, 18) }));
+  await submitOk(wethToken.deposit({ value: toDecimals(100, wethDecimals) }));
 
   // Deploy Uniswap factory & router
-  const factory = await deployContract(signer, UniswapV2Factory, [signerAddr]);
-  const router = await deployContract(signer, UniswapV2Router02, [
-    factory.address,
-    wethToken.address,
-  ]);
+  const factory = await deployOk(new UniswapV2Factory__factory(signer).deploy(signerAddr));
+  const router = await deployOk(
+    new UniswapV2Router02__factory(signer).deploy(factory.address, wethToken.address)
+  );
 
   /////////////////////////////////////////////////////////////////////////////
 
   // Create USD/WETH pair
   await factory.createPair(usdToken.address, wethToken.address);
   const usdWethAddr = await factory.getPair(usdToken.address, wethToken.address);
-  const usdWethPair = new Contract(usdWethAddr, JSON.stringify(IUniswapV2Pair.abi), signer);
+  const usdWethPair = IUniswapV2Pair__factory.connect(usdWethAddr, signer);
 
   // Transfer USD into the USD/WETH pair.
-  await usdToken.transfer(usdWethAddr, toDecimals(10, 18));
+  await usdToken.transfer(usdWethAddr, toDecimals(10, usdDecimals));
 
   // Transfer WETH into the USD/WETH pair.
-  await wethToken.transfer(usdWethAddr, toDecimals(10, 18));
+  await wethToken.transfer(usdWethAddr, toDecimals(10, wethDecimals));
   await submitOk(usdWethPair.sync());
 
   /////////////////////////////////////////////////////////////////////////////
@@ -213,13 +208,13 @@ export async function deployExchange(radToken: RadicleToken, signer: Signer): Pr
   // Create WETH/RAD pair
   await factory.createPair(wethToken.address, radToken.address);
   const wethRadAddr = await factory.getPair(wethToken.address, radToken.address);
-  const wethRadPair = new Contract(wethRadAddr, JSON.stringify(IUniswapV2Pair.abi), signer);
+  const wethRadPair = IUniswapV2Pair__factory.connect(wethRadAddr, signer);
 
   // Transfer RAD into the WETH/RAD pair.
-  await radToken.transfer(wethRadAddr, toDecimals(10, 18));
+  await radToken.transfer(wethRadAddr, toDecimals(10, radDecimals));
 
   // Transfer WETH into the WETH/RAD pair.
-  await wethToken.transfer(wethRadAddr, toDecimals(10, 18));
+  await wethToken.transfer(wethRadAddr, toDecimals(10, wethDecimals));
   await submitOk(wethRadPair.sync());
 
   /////////////////////////////////////////////////////////////////////////////
@@ -263,11 +258,10 @@ export async function deployTreasury(signer: Signer, admin: string): Promise<Tre
 // the owner of the root ENS and the owner and controller of the 'eth' registrar
 export async function deployTestEns(signer: Signer, label: string): Promise<ENS> {
   const signerAddr = await signer.getAddress();
-  const ens = (await deployContract(signer, ENSRegistry, [])) as ENS;
-  const ethRegistrar = (await deployContract(signer, BaseRegistrarImplementation, [
-    ens.address,
-    utils.namehash("eth"),
-  ])) as BaseRegistrar;
+  const ens = await deployOk(new ENSRegistry__factory(signer).deploy());
+  const ethRegistrar = await deployOk(
+    new BaseRegistrarImplementation__factory(signer).deploy(ens.address, utils.namehash("eth"))
+  );
   await submitOk(ens.setSubnodeOwner(utils.namehash(""), labelHash("eth"), ethRegistrar.address));
   await submitOk(ethRegistrar.addController(signerAddr));
   await submitOk(ethRegistrar.register(labelHash(label), signerAddr, 10 ** 10));
@@ -286,20 +280,6 @@ export async function submitOk(
   const receipt = await (await tx).wait();
   assert.strictEqual(receipt.status, 1, "transaction must be successful");
   return receipt;
-}
-
-interface CompilerOutput {
-  abi: abi.JsonFragment[];
-  bytecode: string;
-}
-
-async function deployContract(
-  signer: Signer,
-  compilerOutput: CompilerOutput,
-  args: Array<unknown>
-): Promise<Contract> {
-  const factory = new ContractFactory(compilerOutput.abi, compilerOutput.bytecode, signer);
-  return deployOk(factory.deploy(...args));
 }
 
 function toDecimals(n: number, exp: number): BigNumber {
