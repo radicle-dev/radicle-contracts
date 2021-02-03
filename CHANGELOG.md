@@ -12,6 +12,7 @@ with regard to its JavaScript and TypeScript bindings' APIs and the Ethereum ABI
 
 ### Changed
 - Replaced vesting contract with one adapted from Melonport
+- Switch the funding pool from measuring time in blocks to seconds
 
 ### Removed
 - Rad token

@@ -55,8 +55,14 @@ export async function expectTxFail<T>(
 }
 
 /// Let a certain amount of time pass.
-export async function elapseTime(time: number): Promise<void> {
-  await ethers.provider.send("evm_increaseTime", [time]);
+export async function elapseTime(elapsed: number): Promise<void> {
+  const latestBlock = await ethers.provider.getBlock("latest");
+  // `evm_elapseTime` doesn't prevent the next block timestamp from increasing before mining
+  await elapseTimeUntil(latestBlock.timestamp + elapsed);
+}
+
+export async function elapseTimeUntil(timestamp: number): Promise<void> {
+  await ethers.provider.send("evm_setNextBlockTimestamp", [timestamp]);
   await mineBlocks(1);
 }
 

@@ -19,10 +19,10 @@ but immediately passes them to receivers of their choice
 
 ## The cycles
 
-The whole blockchain history is divided into cycles of
-equal length so that every block belongs to a cycle.
+The whole blockchain history is divided into cycles of equal duration
+so that every block is assigned to a cycle based on its timestamp.
 Cycles are numbered starting with zero.
-In the examples below, we assume that the cycle length is 5.
+In the examples below, we assume that the cycle length is 5 seconds.
 
 ![](how_the_pool_works_1.png)
 
@@ -30,11 +30,11 @@ In the examples below, we assume that the cycle length is 5.
 
 The sender has a balance, a funding rate, and a set of receivers.
 
-The balance is automatically reduced by the funding rate on every block
+The balance is automatically reduced by the funding rate every second
 and the same amount is credited to the sender's receivers.
-When the sender's balance reaches an amount lower than the per-block funding rate,
+When the sender's balance reaches an amount lower than the per-second funding rate,
 the funding is stopped.
-This process doesn't actually require updates on every block,
+This process doesn't actually require updates every second,
 its effects are calculated on the fly whenever they are needed.
 Thus the contract state is updated only when the funding parameters are altered by the users.
 
@@ -52,9 +52,9 @@ as a receiver with weight 1, but only half as big as another receiver with weigh
 
 ## The deltas
 
-On every block funds from the sender’s pool account are credited to the sender’s receivers
+Every second funds from the sender’s pool account are credited to the sender’s receivers
 according to the funding rate.
-The receiver can collect funds sent on a given block only when the cycle containing it is over.
+The receiver can collect funds sent in a given second only when the cycle containing it is over.
 
 ![](how_the_pool_works_2.png)
 
@@ -69,7 +69,7 @@ This allows us to calculate the funds that the receiver receives in each not yet
 
 ![](how_the_pool_works_3.png)
 
-In this example, we start with having the raw **collectable** value of 23 for every block until
+In this example, we start with having the raw **collectable** value of 23 for every second until
 the end of time.
 Next, we reduce that to storing values **added** to the collectable amount on each cycle.
 Now we need to describe only cycles when receiving anything.
@@ -85,13 +85,13 @@ In order to start sending, the sender needs to have a non-zero funding rate,
 a balance of at least the said funding rate and a non-empty list of receivers.
 As soon as the sender is updated to match these criteria, the flow of assets starts.
 First, the funding period is calculated.
-Its start is the current block and its end is the block on which the balance will run out.
+Its start is the current block timestamp and its end is the moment on which the balance will run out.
 Next, for each receiver, the weighted share of the funding rate is calculated.
-The receiver's deltas are updated to reflect that during the whole sending period on every block
+The receiver's deltas are updated to reflect that during the whole sending period every second
 it's going to receive the calculated amount.
 
 Let's take a look at an example of an application of a delta.
-The sender will be sending 1 per block or 5 per cycle.
+The sender will be sending 1 per second or 5 per cycle.
 
 ![](how_the_pool_works_4.png)
 
@@ -103,13 +103,13 @@ This reflects that the first cycle is only partially affected by the change in f
 Only the second one is fully affected and it must apply the rest of the delta.
 
 In this case, the total change of the per-cycle delta is +5 to start sending.
-The current cycle isn't fully affected though, only 2 out of 5 blocks are sending.
+The current cycle isn't fully affected though, only 2 out of 5 seconds are sending.
 It's effectively going to transfer only the amount of 2, which is reflected in the +2 delta change.
 On the other hand, the next cycle and the ones after it are going to transfer the full 5.
 This is expressed with the +3 delta change, which turns 2 per cycle into the full 5 per cycle.
 
 A similar logic is applied to express the end of the funding period.
-The cycle in which funding runs out has 1 transferring block resulting in delta being -4.
+The cycle in which funding runs out has 1 transferring second resulting in delta being -4.
 The following cycle doesn't transfer any funds and has delta -1 to complete zeroing of the rate.
 
 ## Stopping sending
@@ -121,17 +121,17 @@ and only the effects on the receiver's future must be erased.
 
 In this case, the reverting is split into 2 cycles too, one with -4 and the other with -1.
 
-Let's assume that a few blocks have passed, but the sender wants to stop sending.
+Let's assume that a few seconds have passed, but the sender wants to stop sending.
 This can happen because the sender doesn't want to fund the receiver anymore
 or because they want to change some of its configuration.
 In the latter case sending is stopped only to be immediately resumed, but with different parameters.
 Either way, the effects of the sender on the receiver's deltas need to be reverted
-from the current block to the end of the existing funding period.
+from the current timestamp to the end of the existing funding period.
 
 ![](how_the_pool_works_5.png)
 
 The old funding end deltas are reverted because they don't reflect the real funding end anymore.
-On the other hand, a new end is applied to the current block,
+On the other hand, a new end is applied to the current timestamp,
 just as if it was always supposed to be the end of the funding period.
 Now the receiver's future isn't affected by the sender anymore.
 The past stays untouched because the already sent funds are out of the sender's control.
@@ -192,7 +192,7 @@ The funding rate applied to the receivers is split according to their weights in
 
 For the example sake let's assume that the delta's proxy weights sum must be equal to 5.
 The proxy has 2 receivers: A with weight 3 and B with weight 2.
-The sender wants to start sending via the proxy 2 per block or 10 per cycle.
+The sender wants to start sending via the proxy 2 per second or 10 per cycle.
 It's 2 per cycle per proxy weight.
 
 ![](how_the_pool_works_7.png)
@@ -224,7 +224,7 @@ This is done in the same way as removal, but this time the deltas are added and 
 Unlike the senders, the proxies store data with a per-cycle precision.
 When changing the set of receivers, a delta describing the current cycle may need to be applied.
 When it happens, it's unclear what part of the per-cycle delta should be moved,
-because some funds were sent before the current block and some will be sent after it.
+because some funds were sent before the current timestamp and some will be sent after it.
 
 ![](how_the_pool_works_9.png)
 
