@@ -13,3 +13,6 @@
 [submodule "lib/ens"]
 	path = lib/ens
 	url = https://github.com/ensdomains/ens
+[submodule "lib/ds-test"]
+	path = lib/ds-test
+	url = https://github.com/dapphub/ds-test
