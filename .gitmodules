@@ -4,3 +4,6 @@
 [submodule "lib/ds-math"]
 	path = lib/ds-math
 	url = https://github.com/dapphub/ds-math
+[submodule "lib/uniswap-lib"]
+	path = lib/uniswap-lib
+	url = https://github.com/uniswap/uniswap-lib
