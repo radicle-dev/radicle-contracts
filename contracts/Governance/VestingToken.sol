@@ -21,6 +21,11 @@ contract VestingToken {
     bool public interrupted; // whether vesting is still possible
     uint256 public withdrawn; // quantity of token withdrawn so far
 
+    /// Vesting was terminated.
+    event VestingTerminated(uint256 remainingVested, uint256 remainingUnvested);
+    /// Vesting tokens were withdrawn
+    event VestedWithdrawn(uint256 amount);
+
     modifier notInterrupted() {
         require(!interrupted, "The contract has been interrupted");
         _;
@@ -75,6 +80,8 @@ contract VestingToken {
     /// @notice Returns the token amount that is currently withdrawable
     /// @return withdrawable Quantity of withdrawable Radicle asset
     function withdrawableBalance() public view returns (uint256 withdrawable) {
+        if (interrupted) return 0;
+
         uint256 timePassed = block.timestamp.sub(vestingStartTime);
 
         if (timePassed < cliffPeriod) {
@@ -97,19 +104,19 @@ contract VestingToken {
             token.transfer(beneficiary, withdrawable),
             "VestingToken::withdrawVested: transfer to beneficiary failed"
         );
+        emit VestedWithdrawn(withdrawable);
     }
 
     /// @notice Force withdrawal of vested tokens to beneficiary
     /// @notice Send remainder back to owner
     /// @notice Prevent further vesting
     function terminateVesting() external onlyOwner notInterrupted {
-        interrupted = true;
-
         uint256 remainingVested = withdrawableBalance();
         uint256 totalToBeVested = withdrawn.add(remainingVested);
         uint256 remainingUnvested = totalVestingAmount.sub(totalToBeVested);
 
-        withdrawn = totalVestingAmount;
+        interrupted = true;
+        withdrawn = totalToBeVested;
 
         require(
             token.transfer(beneficiary, remainingVested),
@@ -119,5 +126,6 @@ contract VestingToken {
             token.transfer(owner, remainingUnvested),
             "VestingToken::terminateVesting: transfer to owner failed"
         );
+        emit VestingTerminated(remainingVested, remainingUnvested);
     }
 }
