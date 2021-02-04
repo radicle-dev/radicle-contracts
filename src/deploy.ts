@@ -13,6 +13,7 @@ import { ENS } from "../contract-bindings/ethers/ENS";
 import { EthPool } from "../contract-bindings/ethers/EthPool";
 import { Exchange } from "../contract-bindings/ethers/Exchange";
 import { Governor } from "../contract-bindings/ethers/Governor";
+import { Phase0 } from "../contract-bindings/ethers/Phase0";
 import { RadicleToken } from "../contract-bindings/ethers/RadicleToken";
 import { Registrar } from "../contract-bindings/ethers/Registrar";
 import { Timelock } from "../contract-bindings/ethers/Timelock";
@@ -29,6 +30,7 @@ import {
   Governor__factory,
   IERC20__factory,
   IERC721__factory,
+  Phase0__factory,
   RadicleToken__factory,
   Registrar__factory,
   StablePriceOracle__factory,
@@ -266,6 +268,27 @@ export async function deployTestEns(signer: Signer, label: string): Promise<ENS>
   await submitOk(ethRegistrar.addController(signerAddr));
   await submitOk(ethRegistrar.register(labelHash(label), signerAddr, 10 ** 10));
   return ens;
+}
+
+export async function deployPhase0(
+  signer: Signer,
+  tokensHolder: string,
+  timelockDelay: number,
+  governorGuardian: string,
+  ensAddr: string,
+  ethLabel: string
+): Promise<Phase0> {
+  return deployOk(
+    new Phase0__factory(signer).deploy(
+      tokensHolder,
+      timelockDelay,
+      governorGuardian,
+      ensAddr,
+      utils.namehash(ethLabel + ".eth"),
+      ethLabel,
+      { gasLimit: 8 * 10 ** 6 }
+    )
+  );
 }
 
 async function deployOk<T extends Contract>(contractPromise: Promise<T>): Promise<T> {

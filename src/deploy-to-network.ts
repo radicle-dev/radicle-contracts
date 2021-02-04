@@ -1,15 +1,9 @@
 import {
   deployTestEns,
-  deployRadicleToken,
-  deployTimelock,
-  deployGovernance,
-  deployTreasury,
-  deployRegistrar,
   deployVestingToken,
-  nextDeployedContractAddr,
+  deployPhase0,
 } from "./deploy";
-import assert from "assert";
-import { BigNumber, Contract, Wallet, Signer, constants, providers, utils } from "ethers";
+import { BigNumber, Contract, Wallet, Signer, providers, utils } from "ethers";
 import SigningKey = utils.SigningKey;
 import { keyInSelect, keyInYNStrict, question } from "readline-sync";
 import { ERC20__factory } from "../contract-bindings/ethers";
@@ -26,41 +20,22 @@ export async function testEns(): Promise<void> {
 
 export async function phase0(): Promise<void> {
   const signer = await connectPrivateKeySigner();
-  const govGuardian = askForAddress("of the governor guardian");
+  const governorGuardian = askForAddress("of the governor guardian");
   const tokensHolder = askForAddress("to hold all the Radicle Tokens");
   const ensAddr = askForAddress("of the ENS");
-  const label = askFor("an 'eth' subdomain on which the registrar should operate");
+  const ethLabel = askFor("an 'eth' subdomain on which the registrar should operate");
+  const timelockDelay = 60 * 60 * 24 * 2;
 
-  const token = await deploy("Radicle Token", () => deployRadicleToken(signer, tokensHolder));
-
-  const govAddr = await nextDeployedContractAddr(signer, 1);
-  const delay = 60 * 60 * 24 * 2;
-  const timelock = await deploy("timelock", () => deployTimelock(signer, govAddr, delay));
-  const timelockAddr = timelock.address;
-
-  const governance = await deploy("governance", () =>
-    deployGovernance(signer, timelockAddr, token.address, govGuardian)
-  );
-  assert.strictEqual(
-    governance.address,
-    govAddr,
-    "Governance deployed under an unexpected address"
+  const phase0 = await deploy("phase0", () =>
+    deployPhase0(signer, tokensHolder, timelockDelay, governorGuardian, ensAddr, ethLabel)
   );
 
-  await deploy("treasury", () => deployTreasury(signer, timelockAddr));
-
-  await deploy("registrar", () =>
-    deployRegistrar(
-      signer,
-      constants.AddressZero, // oracle not used yet
-      constants.AddressZero, // exchange not used yet
-      token.address,
-      ensAddr,
-      label,
-      timelockAddr
-    )
-  );
-  console.log(`Remember to give the '${label}.eth' domain to the registrar`);
+  printDeployed("Radicle Token", await phase0.token());
+  printDeployed("Timelock", await phase0.timelock());
+  printDeployed("Governor", await phase0.governor());
+  printDeployed("Treasury", await phase0.treasury());
+  printDeployed("Registrar", await phase0.registrar());
+  console.log(`Remember to give the '${ethLabel}.eth' domain to the registrar`);
 }
 
 export async function vestingTokens(): Promise<void> {
@@ -227,7 +202,7 @@ async function deploy<T extends Contract>(name: string, fn: () => Promise<T>): P
     try {
       console.log("Deploying", name, "contract");
       const contract = await fn();
-      console.log("Deployed", name, "contract", "under address", contract.address);
+      printDeployed(name, contract.address);
       return contract;
     } catch (e) {
       console.log(e);
@@ -236,4 +211,8 @@ async function deploy<T extends Contract>(name: string, fn: () => Promise<T>): P
       }
     }
   }
+}
+
+function printDeployed(name: string, address: string): void {
+  console.log("Deployed", name, "contract", "under address", address);
 }
