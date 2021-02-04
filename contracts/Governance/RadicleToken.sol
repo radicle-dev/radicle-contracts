@@ -278,7 +278,7 @@ contract RadicleToken {
         require(signatory != address(0), "RadicleToken::delegateBySig: invalid signature");
         require(nonce == nonces[signatory]++, "RadicleToken::delegateBySig: invalid nonce");
         require(block.timestamp <= expiry, "RadicleToken::delegateBySig: signature expired");
-        return _delegate(signatory, delegatee);
+        _delegate(signatory, delegatee);
     }
 
     /**
@@ -309,7 +309,7 @@ contract RadicleToken {
         address signatory = ecrecover(digest, v, r, s);
         require(signatory != address(0), "RadicleToken::permit: invalid signature");
         require(block.timestamp <= deadline, "RadicleToken::permit: signature expired");
-        return _approve(owner, spender, value);
+        _approve(owner, spender, value);
     }
 
     /**
