@@ -40,7 +40,7 @@ contract Phase0 {
         bytes memory govAddrPayload = abi.encodePacked(hex"d694", address(this), governorNonce);
         address govAddr = address(uint256(keccak256(govAddrPayload)));
 
-        RadicleToken _token = RadicleToken(address(0));
+        RadicleToken _token = new RadicleToken(_tokensHolder);
         Timelock _timelock = new Timelock(govAddr, _timelockDelay);
         Governor _governor = new Governor(address(_timelock), address(_token), _governorGuardian);
         require(address(_governor) == govAddr, "Governor deployed under an unexpected address");
