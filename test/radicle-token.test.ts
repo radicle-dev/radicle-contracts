@@ -117,7 +117,7 @@ async function expectPriorVotes(
   expectBigNumberEq(actual, expected, "Invalid number of votes");
 }
 
-describe("Radicle Token", () => {
+describe.only("Radicle Token", () => {
   describe("metadata", () => {
     it("has given name", async () => {
       const [token] = await getRadicleTokenSigners();

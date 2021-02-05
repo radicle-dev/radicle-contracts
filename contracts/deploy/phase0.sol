@@ -4,7 +4,7 @@ pragma solidity ^0.7.5;
 import {ENS} from "@ensdomains/ens/contracts/ENS.sol";
 import {ERC20Burnable} from "@openzeppelin/contracts/token/ERC20/ERC20Burnable.sol";
 import {Governor} from "../Governance/Governor.sol";
-import {RadicleToken} from "../Governance/RadicleToken.sol";
+import "../Governance/RadicleToken.sol";
 import {Timelock} from "../Governance/Timelock.sol";
 import {Treasury} from "../Governance/Treasury.sol";
 import {Registrar} from "../Registrar.sol";
@@ -40,7 +40,7 @@ contract Phase0 {
         bytes memory govAddrPayload = abi.encodePacked(hex"d694", address(this), governorNonce);
         address govAddr = address(uint256(keccak256(govAddrPayload)));
 
-        RadicleToken _token = new RadicleToken(_tokensHolder);
+        RadicleToken _token = RadicleToken(address(0));
         Timelock _timelock = new Timelock(govAddr, _timelockDelay);
         Governor _governor = new Governor(address(_timelock), address(_token), _governorGuardian);
         require(address(_governor) == govAddr, "Governor deployed under an unexpected address");
