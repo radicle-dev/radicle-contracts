@@ -17,7 +17,6 @@ import { Phase0 } from "../contract-bindings/ethers/Phase0";
 import { RadicleToken } from "../contract-bindings/ethers/RadicleToken";
 import { Registrar } from "../contract-bindings/ethers/Registrar";
 import { Timelock } from "../contract-bindings/ethers/Timelock";
-import { Treasury } from "../contract-bindings/ethers/Treasury";
 import { VestingToken } from "../contract-bindings/ethers/VestingToken";
 import {
   BaseRegistrarImplementation__factory,
@@ -35,7 +34,6 @@ import {
   Registrar__factory,
   StablePriceOracle__factory,
   Timelock__factory,
-  Treasury__factory,
   UniswapV2Factory__factory,
   IUniswapV2Pair__factory,
   UniswapV2Router02__factory,
@@ -250,10 +248,6 @@ export async function deployErc20Pool(
   erc20TokenAddress: string
 ): Promise<Erc20Pool> {
   return deployOk(new Erc20Pool__factory(signer).deploy(cycleBlocks, erc20TokenAddress));
-}
-
-export async function deployTreasury(signer: Signer, admin: string): Promise<Treasury> {
-  return deployOk(new Treasury__factory(signer).deploy(admin));
 }
 
 // The signer becomes an owner of the '', 'eth' and '<label>.eth' domains,
