@@ -230,7 +230,7 @@ contract Registrar {
     /// Check whether a name is valid.
     function valid(string memory name) public pure returns (bool) {
         uint256 len = bytes(name).length;
-        return len > 0 && len <= 32;
+        return len >= 2 && len <= 128;
     }
 
     /// Check whether a name is available for registration.
