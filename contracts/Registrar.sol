@@ -61,7 +61,7 @@ contract Registrar {
     uint256 public minCommitmentAge;
 
     /// Registration fee in *Radicle* (uRads).
-    uint256 public registrationFeeRad = 1e18;
+    uint256 public registrationFeeRad = 10e18;
 
     /// @notice The EIP-712 typehash for the contract's domain
     bytes32 public constant DOMAIN_TYPEHASH =
