@@ -72,7 +72,9 @@ contract RadicleToken {
 
     /// @notice The EIP-712 typehash for EIP-2612 permit
     bytes32 public constant PERMIT_TYPEHASH =
-        keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
+        keccak256(
+            "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"
+        );
     /// @notice A record of states for signing / validating signatures
     mapping(address => uint256) public nonces;
 
@@ -122,9 +124,10 @@ contract RadicleToken {
 
     /* @notice DOMAIN_SEPARATOR */
     function DOMAIN_SEPARATOR() public view returns (bytes32) {
-        return keccak256(
-            abi.encode(DOMAIN_TYPEHASH, keccak256(bytes(NAME)), getChainId(), address(this))
-        );
+        return
+            keccak256(
+                abi.encode(DOMAIN_TYPEHASH, keccak256(bytes(NAME)), getChainId(), address(this))
+            );
     }
 
     /**
@@ -150,7 +153,11 @@ contract RadicleToken {
         return true;
     }
 
-    function _approve(address owner, address spender, uint256 rawAmount) internal {
+    function _approve(
+        address owner,
+        address spender,
+        uint256 rawAmount
+    ) internal {
         uint96 amount;
         if (rawAmount == uint256(-1)) {
             amount = uint96(-1);
@@ -302,7 +309,10 @@ contract RadicleToken {
         bytes32 r,
         bytes32 s
     ) public {
-        bytes32 structHash = keccak256(abi.encode(PERMIT_TYPEHASH, owner, spender, value, nonces[owner]++, deadline));
+        bytes32 structHash =
+            keccak256(
+                abi.encode(PERMIT_TYPEHASH, owner, spender, value, nonces[owner]++, deadline)
+            );
         bytes32 digest = keccak256(abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR(), structHash));
         require(owner == ecrecover(digest, v, r, s), "RadicleToken::permit: invalid signature");
         require(owner != address(0), "RadicleToken::permit: invalid signature");
