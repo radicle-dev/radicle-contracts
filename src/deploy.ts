@@ -69,15 +69,15 @@ export async function deployAll(signer: Signer): Promise<DeployedContracts> {
   const gov = await deployGovernance(signer, timelock.address, rad.address, signerAddr);
   const exchange = await deployExchange(rad, signer);
   const label = "radicle";
+  const minCommitmentAge = 50;
   const ens = await deployTestEns(signer, label);
   const registrar = await deployRegistrar(
     signer,
-    await exchange.oracle(),
-    exchange.address,
-    rad.address,
     ens.address,
+    rad.address,
+    signerAddr,
     label,
-    signerAddr
+    minCommitmentAge
   );
   await transferEthDomain(ens, label, registrar.address);
   const ethPool = await deployEthPool(signer, 10);
@@ -118,22 +118,20 @@ export async function deployVestingToken(
 
 export async function deployRegistrar(
   signer: Signer,
-  oracle: string,
-  exchange: string,
-  token: string,
   ensAddr: string,
+  token: string,
+  admin: string,
   label: string,
-  admin: string
+  minCommitmentAge: BigNumberish
 ): Promise<Registrar> {
   return await deployOk(
     new Registrar__factory(signer).deploy(
       ensAddr,
-      utils.namehash(label + ".eth"),
-      labelHash(label),
-      oracle,
-      exchange,
       token,
-      admin
+      admin,
+      minCommitmentAge,
+      utils.namehash(label + ".eth"),
+      labelHash(label)
     )
   );
 }
