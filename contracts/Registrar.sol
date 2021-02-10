@@ -49,7 +49,7 @@ contract Registrar {
     Commitments public immutable commitments = new Commitments();
 
     /// The namehash of the `eth` TLD in the ENS registry, eg. namehash("eth").
-    bytes32 public constant ethNode = keccak256(abi.encodePacked(bytes32(0), keccak256("eth")));
+    bytes32 public constant ETH_NODE = keccak256(abi.encodePacked(bytes32(0), keccak256("eth")));
 
     /// The namehash of the node in the `eth` TLD, eg. namehash("radicle.eth").
     bytes32 public immutable radNode;
@@ -187,11 +187,11 @@ contract Registrar {
         address owner,
         uint256 value,
         uint256 deadline,
-        uint8 permit_v,
-        bytes32 permit_r,
-        bytes32 permit_s
+        uint8 permitV,
+        bytes32 permitR,
+        bytes32 permitS
     ) public {
-        rad.permit(owner, address(this), value, deadline, permit_v, permit_r, permit_s);
+        rad.permit(owner, address(this), value, deadline, permitV, permitR, permitS);
         commitBySig(commitment, nonce, expiry, submissionFee, v, r, s);
     }
 
@@ -249,7 +249,7 @@ contract Registrar {
 
     /// Set the owner of the domain.
     function setDomainOwner(address newOwner) public adminOnly {
-        IERC721 ethRegistrar = IERC721(ens.owner(ethNode));
+        IERC721 ethRegistrar = IERC721(ens.owner(ETH_NODE));
 
         ens.setOwner(radNode, newOwner);
         ethRegistrar.transferFrom(address(this), newOwner, tokenId);
