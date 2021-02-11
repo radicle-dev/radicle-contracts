@@ -29,9 +29,9 @@ describe("Registrar", function () {
 
     // Commit to `cloudhead.radicle.eth`.
     const label = "cloudhead";
-    const secret = ethers.utils.randomBytes(32)
+    const secret = ethers.utils.randomBytes(32);
     const commitment = utils.keccak256(concat([utils.toUtf8Bytes(label), registrantAddr, secret]));
-    await submit(registrar.connect(registrant).commit(commitment))
+    await submit(registrar.connect(registrant).commit(commitment));
     await mineBlocks(50);
     await submit(registrar.connect(registrant).register("cloudhead", registrantAddr, secret));
     assert.equal(await ens.owner(ethers.utils.namehash("cloudhead.radicle.eth")), registrantAddr);
