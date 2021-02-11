@@ -73,18 +73,13 @@ async function expectDelegateBySigFail(
   v: BigNumberish,
   r: BytesLike,
   s: BytesLike,
-  // @ts-expect-error Unused until the proper cause can be retreived
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   expectedCause: string
 ): Promise<void> {
   const addr = await delegatee.signer.getAddress();
   await submitFailing(
     delegator.delegateBySig(addr, nonce, expiry, v, r, s),
     "delegateBySig",
-    // TODO replace when https://github.com/nomiclabs/hardhat/issues/1227 is fixed
-    // "RadicleToken::delegateBySig: " + expectedCause
-    "Transaction reverted and Hardhat couldn't infer the reason. " +
-      "Please report this to help us improve Hardhat."
+    "RadicleToken::delegateBySig: " + expectedCause
   );
 }
 
@@ -240,10 +235,7 @@ describe("Radicle Token", () => {
       await expectTxFail(
         user.getPriorVotes(userAddr, 10e9),
         "getPriorVotes",
-        // TODO replace when https://github.com/nomiclabs/hardhat/issues/1227 is fixed
-        // "RadicleToken::getPriorVotes: not yet determined"
-        "Transaction reverted and Hardhat couldn't infer the reason. " +
-          "Please report this to help us improve Hardhat."
+        "RadicleToken::getPriorVotes: not yet determined"
       );
     });
 

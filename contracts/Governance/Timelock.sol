@@ -31,17 +31,28 @@ import "../libraries/SafeMath.sol";
 
 contract Timelock {
     using SafeMath for uint256;
+    using SafeMath64 for uint64;
+
+    uint64 public constant GRACE_PERIOD = 14 days;
+    uint64 public constant MINIMUM_DELAY = 2 days;
+    uint64 public constant MAXIMUM_DELAY = 30 days;
+
+    address public admin;
+    uint64 public delay;
+    address public pendingAdmin;
+
+    mapping(bytes32 => bool) public queuedTransactions;
 
     event NewAdmin(address indexed newAdmin);
     event NewPendingAdmin(address indexed newPendingAdmin);
-    event NewDelay(uint256 indexed newDelay);
+    event NewDelay(uint64 indexed newDelay);
     event CancelTransaction(
         bytes32 indexed txHash,
         address indexed target,
         uint256 value,
         string signature,
         bytes data,
-        uint256 eta
+        uint64 eta
     );
     event ExecuteTransaction(
         bytes32 indexed txHash,
@@ -49,7 +60,7 @@ contract Timelock {
         uint256 value,
         string signature,
         bytes data,
-        uint256 eta
+        uint64 eta
     );
     event QueueTransaction(
         bytes32 indexed txHash,
@@ -57,20 +68,10 @@ contract Timelock {
         uint256 value,
         string signature,
         bytes data,
-        uint256 eta
+        uint64 eta
     );
 
-    uint256 public constant GRACE_PERIOD = 14 days;
-    uint256 public constant MINIMUM_DELAY = 2 days;
-    uint256 public constant MAXIMUM_DELAY = 30 days;
-
-    address public admin;
-    address public pendingAdmin;
-    uint256 public delay;
-
-    mapping(bytes32 => bool) public queuedTransactions;
-
-    constructor(address admin_, uint256 delay_) {
+    constructor(address admin_, uint64 delay_) {
         require(delay_ >= MINIMUM_DELAY, "Timelock::constructor: Delay must exceed minimum delay.");
         require(
             delay_ <= MAXIMUM_DELAY,
@@ -88,7 +89,7 @@ contract Timelock {
         return GRACE_PERIOD;
     }
 
-    function setDelay(uint256 delay_) public {
+    function setDelay(uint64 delay_) public {
         require(msg.sender == address(this), "Timelock::setDelay: Call must come from Timelock.");
         require(delay_ >= MINIMUM_DELAY, "Timelock::setDelay: Delay must exceed minimum delay.");
         require(
@@ -126,7 +127,7 @@ contract Timelock {
         uint256 value,
         string memory signature,
         bytes memory data,
-        uint256 eta
+        uint64 eta
     ) public returns (bytes32) {
         require(msg.sender == admin, "Timelock::queueTransaction: Call must come from admin.");
         require(
@@ -146,7 +147,7 @@ contract Timelock {
         uint256 value,
         string memory signature,
         bytes memory data,
-        uint256 eta
+        uint64 eta
     ) public {
         require(msg.sender == admin, "Timelock::cancelTransaction: Call must come from admin.");
 
@@ -161,7 +162,7 @@ contract Timelock {
         uint256 value,
         string memory signature,
         bytes memory data,
-        uint256 eta
+        uint64 eta
     ) public payable returns (bytes memory) {
         require(msg.sender == admin, "Timelock::executeTransaction: Call must come from admin.");
 

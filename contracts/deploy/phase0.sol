@@ -23,7 +23,7 @@ contract Phase0 {
 
     constructor(
         address _tokensHolder,
-        uint256 _timelockDelay,
+        uint64 _timelockDelay,
         address _governorGuardian,
         ENS _ens,
         bytes32 _namehash,

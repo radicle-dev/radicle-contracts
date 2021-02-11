@@ -28,39 +28,20 @@
 pragma solidity ^0.7.5;
 pragma experimental ABIEncoderV2;
 
+import "../libraries/SafeMath.sol";
+
 contract RadicleToken {
-    /// @notice EIP-20 token name for this token
-    string public constant NAME = "Radicle";
+    using SafeMath96 for uint96;
+    using SafeMath64 for uint64;
 
-    /// @notice EIP-20 token symbol for this token
-    string public constant SYMBOL = "RADICLE";
+    /// @dev EIP-20 token name for this token
+    string internal constant NAME = "Radicle";
 
-    /// @notice EIP-20 token decimals for this token
-    uint8 public constant DECIMALS = 18;
+    /// @dev EIP-20 token symbol for this token
+    string internal constant SYMBOL = "RADICLE";
 
-    /// @notice Total number of tokens in circulation
-    uint256 public totalSupply = 100000000e18; // 100 million tokens
-
-    // Allowance amounts on behalf of others
-    mapping(address => mapping(address => uint96)) internal allowances;
-
-    // Official record of token balances for each account
-    mapping(address => uint96) internal balances;
-
-    /// @notice A record of each accounts delegate
-    mapping(address => address) public delegates;
-
-    /// @notice A checkpoint for marking number of votes from a given block
-    struct Checkpoint {
-        uint32 fromBlock;
-        uint96 votes;
-    }
-
-    /// @notice A record of votes checkpoints for each account, by index
-    mapping(address => mapping(uint32 => Checkpoint)) public checkpoints;
-
-    /// @notice The number of checkpoints for each account
-    mapping(address => uint32) public numCheckpoints;
+    /// @dev EIP-20 token decimals for this token
+    uint8 internal constant DECIMALS = 18;
 
     /// @notice The EIP-712 typehash for the contract's domain
     bytes32 public constant DOMAIN_TYPEHASH =
@@ -75,8 +56,33 @@ contract RadicleToken {
         keccak256(
             "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"
         );
+
+    /// @dev Total number of tokens in circulation
+    uint96 internal supply = 100000000e18; // 100 million tokens
+
+    // Allowance amounts on behalf of others
+    mapping(address => mapping(address => uint96)) internal allowances;
+
+    // Official record of token balances for each account
+    mapping(address => uint96) internal balances;
+
+    /// @notice A record of each accounts delegate
+    mapping(address => address) public delegates;
+
+    /// @notice A record of votes checkpoints for each account, by index
+    mapping(address => mapping(uint32 => Checkpoint)) public checkpoints;
+
+    /// @notice The number of checkpoints for each account
+    mapping(address => uint32) public numCheckpoints;
+
     /// @notice A record of states for signing / validating signatures
     mapping(address => uint256) public nonces;
+
+    /// @notice A checkpoint for marking number of votes from a given block
+    struct Checkpoint {
+        uint64 fromBlock;
+        uint96 votes;
+    }
 
     /// @notice An event thats emitted when an account changes its delegate
     event DelegateChanged(
@@ -86,11 +92,7 @@ contract RadicleToken {
     );
 
     /// @notice An event thats emitted when a delegate account's vote balance changes
-    event DelegateVotesChanged(
-        address indexed delegate,
-        uint256 previousBalance,
-        uint256 newBalance
-    );
+    event DelegateVotesChanged(address indexed delegate, uint96 previousBalance, uint96 newBalance);
 
     /// @notice The standard EIP-20 transfer event
     event Transfer(address indexed from, address indexed to, uint256 amount);
@@ -103,8 +105,8 @@ contract RadicleToken {
      * @param account The initial account to grant all the tokens
      */
     constructor(address account) {
-        balances[account] = uint96(totalSupply);
-        emit Transfer(address(0), account, totalSupply);
+        balances[account] = supply;
+        emit Transfer(address(0), account, supply);
     }
 
     /* @notice Token name */
@@ -120,6 +122,11 @@ contract RadicleToken {
     /* @notice Token decimals */
     function decimals() public pure returns (uint8) {
         return DECIMALS;
+    }
+
+    /* @notice Token total supply */
+    function totalSupply() public view returns (uint256) {
+        return supply;
     }
 
     /* @notice domainSeparator */
@@ -162,7 +169,7 @@ contract RadicleToken {
         if (rawAmount == uint256(-1)) {
             amount = uint96(-1);
         } else {
-            amount = safe96(rawAmount, "RadicleToken::approve: amount exceeds 96 bits");
+            amount = SafeMath96.from(rawAmount, "RadicleToken::approve: amount exceeds 96 bits");
         }
 
         allowances[owner][spender] = amount;
@@ -186,7 +193,8 @@ contract RadicleToken {
      * @return Whether or not the transfer succeeded
      */
     function transfer(address dst, uint256 rawAmount) external returns (bool) {
-        uint96 amount = safe96(rawAmount, "RadicleToken::transfer: amount exceeds 96 bits");
+        uint96 amount =
+            SafeMath96.from(rawAmount, "RadicleToken::transfer: amount exceeds 96 bits");
         _transferTokens(msg.sender, dst, amount);
         return true;
     }
@@ -205,12 +213,11 @@ contract RadicleToken {
     ) external returns (bool) {
         address spender = msg.sender;
         uint96 spenderAllowance = allowances[src][spender];
-        uint96 amount = safe96(rawAmount, "RadicleToken::approve: amount exceeds 96 bits");
+        uint96 amount = SafeMath96.from(rawAmount, "RadicleToken::approve: amount exceeds 96 bits");
 
         if (spender != src && spenderAllowance != uint96(-1)) {
             uint96 newAllowance =
-                sub96(
-                    spenderAllowance,
+                spenderAllowance.sub(
                     amount,
                     "RadicleToken::transferFrom: transfer amount exceeds spender allowance"
                 );
@@ -230,14 +237,14 @@ contract RadicleToken {
      */
     function burnFrom(address account, uint256 rawAmount) public {
         require(account != address(0), "RadicleToken::burnFrom: cannot burn from the zero address");
-        uint96 amount = safe96(rawAmount, "RadicleToken::burnFrom: amount exceeds 96 bits");
+        uint96 amount =
+            SafeMath96.from(rawAmount, "RadicleToken::burnFrom: amount exceeds 96 bits");
 
         address spender = msg.sender;
         uint96 spenderAllowance = allowances[account][spender];
         if (spender != account && spenderAllowance != uint96(-1)) {
             uint96 newAllowance =
-                sub96(
-                    spenderAllowance,
+                spenderAllowance.sub(
                     amount,
                     "RadicleToken::burnFrom: burn amount exceeds allowance"
                 );
@@ -245,8 +252,7 @@ contract RadicleToken {
             emit Approval(account, spender, newAllowance);
         }
 
-        balances[account] = sub96(
-            balances[account],
+        balances[account] = balances[account].sub(
             amount,
             "RadicleToken::burnFrom: burn amount exceeds balance"
         );
@@ -254,7 +260,7 @@ contract RadicleToken {
 
         _moveDelegates(delegates[account], address(0), amount);
 
-        totalSupply -= rawAmount;
+        supply -= amount;
     }
 
     /**
@@ -337,7 +343,7 @@ contract RadicleToken {
      * @param blockNumber The block number to get the vote balance at
      * @return The number of votes the account had as of the given block
      */
-    function getPriorVotes(address account, uint256 blockNumber) public view returns (uint96) {
+    function getPriorVotes(address account, uint64 blockNumber) public view returns (uint96) {
         require(blockNumber < block.number, "RadicleToken::getPriorVotes: not yet determined");
 
         uint32 nCheckpoints = numCheckpoints[account];
@@ -395,13 +401,11 @@ contract RadicleToken {
             "RadicleToken::_transferTokens: cannot transfer to the zero address"
         );
 
-        balances[src] = sub96(
-            balances[src],
+        balances[src] = balances[src].sub(
             amount,
             "RadicleToken::_transferTokens: transfer amount exceeds balance"
         );
-        balances[dst] = add96(
-            balances[dst],
+        balances[dst] = balances[dst].add(
             amount,
             "RadicleToken::_transferTokens: transfer amount overflows"
         );
@@ -420,7 +424,7 @@ contract RadicleToken {
                 uint32 srcRepNum = numCheckpoints[srcRep];
                 uint96 srcRepOld = srcRepNum > 0 ? checkpoints[srcRep][srcRepNum - 1].votes : 0;
                 uint96 srcRepNew =
-                    sub96(srcRepOld, amount, "RadicleToken::_moveVotes: vote amount underflows");
+                    srcRepOld.sub(amount, "RadicleToken::_moveVotes: vote amount underflows");
                 _writeCheckpoint(srcRep, srcRepNum, srcRepOld, srcRepNew);
             }
 
@@ -428,7 +432,7 @@ contract RadicleToken {
                 uint32 dstRepNum = numCheckpoints[dstRep];
                 uint96 dstRepOld = dstRepNum > 0 ? checkpoints[dstRep][dstRepNum - 1].votes : 0;
                 uint96 dstRepNew =
-                    add96(dstRepOld, amount, "RadicleToken::_moveVotes: vote amount overflows");
+                    dstRepOld.add(amount, "RadicleToken::_moveVotes: vote amount overflows");
                 _writeCheckpoint(dstRep, dstRepNum, dstRepOld, dstRepNew);
             }
         }
@@ -440,9 +444,7 @@ contract RadicleToken {
         uint96 oldVotes,
         uint96 newVotes
     ) internal {
-        uint32 blockNumber =
-            safe32(block.number, "RadicleToken::_writeCheckpoint: block number exceeds 32 bits");
-
+        uint64 blockNumber = SafeMath64.from(block.number);
         if (nCheckpoints > 0 && checkpoints[delegatee][nCheckpoints - 1].fromBlock == blockNumber) {
             checkpoints[delegatee][nCheckpoints - 1].votes = newVotes;
         } else {
@@ -451,35 +453,6 @@ contract RadicleToken {
         }
 
         emit DelegateVotesChanged(delegatee, oldVotes, newVotes);
-    }
-
-    function safe32(uint256 n, string memory errorMessage) internal pure returns (uint32) {
-        require(n < 2**32, errorMessage);
-        return uint32(n);
-    }
-
-    function safe96(uint256 n, string memory errorMessage) internal pure returns (uint96) {
-        require(n < 2**96, errorMessage);
-        return uint96(n);
-    }
-
-    function add96(
-        uint96 a,
-        uint96 b,
-        string memory errorMessage
-    ) internal pure returns (uint96) {
-        uint96 c = a + b;
-        require(c >= a, errorMessage);
-        return c;
-    }
-
-    function sub96(
-        uint96 a,
-        uint96 b,
-        string memory errorMessage
-    ) internal pure returns (uint96) {
-        require(b <= a, errorMessage);
-        return a - b;
     }
 
     function getChainId() internal pure returns (uint256) {

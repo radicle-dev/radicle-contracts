@@ -28,34 +28,22 @@
 pragma solidity ^0.7.5;
 pragma experimental ABIEncoderV2;
 
+import "../libraries/SafeMath.sol";
+
 contract Governor {
+    using SafeMath for uint256;
+    using SafeMath96 for uint96;
+    using SafeMath64 for uint64;
+
     /// @notice The name of this contract
     string public constant NAME = "Radicle Governor";
 
-    /// @notice The number of votes in support of a proposal required in order for a quorum to be reached and for a vote to succeed
-    function quorumVotes() public pure returns (uint256) {
-        return 4000000e18;
-    } // 4,000,000 = 4% of Token
+    /// @notice The EIP-712 typehash for the contract's domain
+    bytes32 public constant DOMAIN_TYPEHASH =
+        keccak256("EIP712Domain(string name,uint256 chainId,address verifyingContract)");
 
-    /// @notice The number of votes required in order for a voter to become a proposer
-    function proposalThreshold() public pure returns (uint256) {
-        return 1000000e18;
-    } // 1,000,000 = 1% of Token
-
-    /// @notice The maximum number of actions that can be included in a proposal
-    function proposalMaxOperations() public pure returns (uint256) {
-        return 10;
-    } // 10 actions
-
-    /// @notice The delay before voting on a proposal may take place, once proposed
-    function votingDelay() public pure returns (uint256) {
-        return 1;
-    } // 1 block
-
-    /// @notice The duration of voting on a proposal, in blocks
-    function votingPeriod() public pure returns (uint256) {
-        return 17280;
-    } // ~3 days in blocks (assuming 15s blocks)
+    /// @notice The EIP-712 typehash for the ballot struct used by the contract
+    bytes32 public constant BALLOT_TYPEHASH = keccak256("Ballot(uint256 proposalId,bool support)");
 
     /// @notice The address of the Radicle Protocol Timelock
     TimelockInterface public timelock;
@@ -69,14 +57,16 @@ contract Governor {
     /// @notice The total number of proposals
     uint256 public proposalCount;
 
+    /// @notice The official record of all proposals ever proposed
+    mapping(uint256 => Proposal) public proposals;
+
+    /// @notice The latest proposal for each proposer
+    mapping(address => uint256) public latestProposalIds;
+
     /// @notice Change proposal
     struct Proposal {
-        // Unique id for looking up a proposal
-        uint256 id;
         // Creator of the proposal
         address proposer;
-        // The timestamp that the proposal will be available for execution, set once the vote succeeds
-        uint256 eta;
         // the ordered list of target addresses for calls to be made
         address[] targets;
         // The ordered list of values (i.e. msg.value) to be passed to the calls to be made
@@ -86,17 +76,19 @@ contract Governor {
         // The ordered list of calldata to be passed to each call
         bytes[] calldatas;
         // The block at which voting begins: holders must delegate their votes prior to this block
-        uint256 startBlock;
+        uint64 startBlock;
         // The block at which voting ends: votes must be cast prior to this block
-        uint256 endBlock;
-        // Current number of votes in favor of this proposal
-        uint256 forVotes;
-        // Current number of votes in opposition to this proposal
-        uint256 againstVotes;
+        uint64 endBlock;
+        // The timestamp that the proposal will be available for execution, set once the vote succeeds
+        uint64 eta;
         // Flag marking whether the proposal has been canceled
         bool canceled;
         // Flag marking whether the proposal has been executed
         bool executed;
+        // Current number of votes in favor of this proposal
+        uint96 forVotes;
+        // Current number of votes in opposition to this proposal
+        uint96 againstVotes;
         // Receipts of ballots for the entire set of voters
         mapping(address => Receipt) receipts;
     }
@@ -114,43 +106,30 @@ contract Governor {
     /// @notice Possible states that a proposal may be in
     enum ProposalState {Pending, Active, Canceled, Defeated, Succeeded, Queued, Expired, Executed}
 
-    /// @notice The official record of all proposals ever proposed
-    mapping(uint256 => Proposal) public proposals;
-
-    /// @notice The latest proposal for each proposer
-    mapping(address => uint256) public latestProposalIds;
-
-    /// @notice The EIP-712 typehash for the contract's domain
-    bytes32 public constant DOMAIN_TYPEHASH =
-        keccak256("EIP712Domain(string name,uint256 chainId,address verifyingContract)");
-
-    /// @notice The EIP-712 typehash for the ballot struct used by the contract
-    bytes32 public constant BALLOT_TYPEHASH = keccak256("Ballot(uint256 proposalId,bool support)");
-
     /// @notice An event emitted when a new proposal is created
     event ProposalCreated(
-        uint256 id,
-        address proposer,
+        uint256 indexed id,
+        address indexed proposer,
         address[] targets,
         uint256[] values,
         string[] signatures,
         bytes[] calldatas,
-        uint256 startBlock,
-        uint256 endBlock,
+        uint64 startBlock,
+        uint64 endBlock,
         string description
     );
 
     /// @notice An event emitted when a vote has been cast on a proposal
-    event VoteCast(address voter, uint256 proposalId, bool support, uint256 votes);
+    event VoteCast(uint256 indexed id, address indexed voter, uint96 votes, bool support);
 
     /// @notice An event emitted when a proposal has been canceled
-    event ProposalCanceled(uint256 id);
+    event ProposalCanceled(uint256 indexed id);
 
     /// @notice An event emitted when a proposal has been queued in the Timelock
-    event ProposalQueued(uint256 id, uint256 eta);
+    event ProposalQueued(uint256 indexed id, uint64 eta);
 
     /// @notice An event emitted when a proposal has been executed in the Timelock
-    event ProposalExecuted(uint256 id);
+    event ProposalExecuted(uint256 indexed id);
 
     constructor(
         address timelock_,
@@ -162,6 +141,31 @@ contract Governor {
         guardian = guardian_;
     }
 
+    /// @notice The number of votes in support of a proposal required in order for a quorum to be reached and for a vote to succeed
+    function quorumVotes() public pure returns (uint256) {
+        return 4000000e18;
+    } // 4,000,000 = 4% of Token
+
+    /// @notice The number of votes required in order for a voter to become a proposer
+    function proposalThreshold() public pure returns (uint256) {
+        return 1000000e18;
+    } // 1,000,000 = 1% of Token
+
+    /// @notice The maximum number of actions that can be included in a proposal
+    function proposalMaxOperations() public pure returns (uint256) {
+        return 10;
+    } // 10 actions
+
+    /// @notice The delay before voting on a proposal may take place, once proposed
+    function votingDelay() public pure returns (uint64) {
+        return 1;
+    } // 1 block
+
+    /// @notice The duration of voting on a proposal, in blocks
+    function votingPeriod() public pure returns (uint64) {
+        return 17280;
+    } // ~3 days in blocks (assuming 15s blocks)
+
     function propose(
         address[] memory targets,
         uint256[] memory values,
@@ -170,7 +174,8 @@ contract Governor {
         string memory description
     ) public returns (uint256) {
         require(
-            token.getPriorVotes(msg.sender, sub256(block.number, 1)) > proposalThreshold(),
+            token.getPriorVotes(msg.sender, SafeMath64.from(block.number).sub(1)) >
+                proposalThreshold(),
             "Governor::propose: proposer votes below proposal threshold"
         );
         require(
@@ -195,13 +200,12 @@ contract Governor {
             );
         }
 
-        uint256 startBlock = add256(block.number, votingDelay());
-        uint256 endBlock = add256(startBlock, votingPeriod());
+        uint64 startBlock = SafeMath64.from(block.number).add(votingDelay());
+        uint64 endBlock = startBlock.add(votingPeriod());
 
         proposalCount++;
         Proposal storage newProposal = proposals[proposalCount];
 
-        newProposal.id = proposalCount;
         newProposal.proposer = msg.sender;
         newProposal.eta = 0;
         newProposal.targets = targets;
@@ -215,10 +219,10 @@ contract Governor {
         newProposal.canceled = false;
         newProposal.executed = false;
 
-        latestProposalIds[newProposal.proposer] = newProposal.id;
+        latestProposalIds[newProposal.proposer] = proposalCount;
 
         emit ProposalCreated(
-            newProposal.id,
+            proposalCount,
             msg.sender,
             targets,
             values,
@@ -228,7 +232,7 @@ contract Governor {
             endBlock,
             description
         );
-        return newProposal.id;
+        return proposalCount;
     }
 
     function queue(uint256 proposalId) public {
@@ -237,7 +241,7 @@ contract Governor {
             "Governor::queue: proposal can only be queued if it is succeeded"
         );
         Proposal storage proposal = proposals[proposalId];
-        uint256 eta = add256(block.timestamp, timelock.delay());
+        uint64 eta = SafeMath64.from(block.timestamp).add(timelock.delay());
         for (uint256 i = 0; i < proposal.targets.length; i++) {
             _queueOrRevert(
                 proposal.targets[i],
@@ -256,7 +260,7 @@ contract Governor {
         uint256 value,
         string memory signature,
         bytes memory data,
-        uint256 eta
+        uint64 eta
     ) internal {
         require(
             !timelock.queuedTransactions(
@@ -296,7 +300,7 @@ contract Governor {
         Proposal storage proposal = proposals[proposalId];
         require(
             msg.sender == guardian ||
-                token.getPriorVotes(proposal.proposer, sub256(block.number, 1)) <
+                token.getPriorVotes(proposal.proposer, SafeMath64.from(block.number).sub(1)) <
                 proposalThreshold(),
             "Governor::cancel: proposer above threshold"
         );
@@ -353,7 +357,7 @@ contract Governor {
             return ProposalState.Succeeded;
         } else if (proposal.executed) {
             return ProposalState.Executed;
-        } else if (block.timestamp >= add256(proposal.eta, timelock.gracePeriod())) {
+        } else if (block.timestamp >= proposal.eta.add(timelock.gracePeriod())) {
             return ProposalState.Expired;
         } else {
             return ProposalState.Queued;
@@ -394,16 +398,16 @@ contract Governor {
         uint96 votes = token.getPriorVotes(voter, proposal.startBlock);
 
         if (support) {
-            proposal.forVotes = add256(proposal.forVotes, votes);
+            proposal.forVotes = proposal.forVotes.add(votes);
         } else {
-            proposal.againstVotes = add256(proposal.againstVotes, votes);
+            proposal.againstVotes = proposal.againstVotes.add(votes);
         }
 
         receipt.hasVoted = true;
         receipt.support = support;
         receipt.votes = votes;
 
-        emit VoteCast(voter, proposalId, support, votes);
+        emit VoteCast(proposalId, voter, votes, support);
     }
 
     function __acceptAdmin() public {
@@ -416,7 +420,7 @@ contract Governor {
         guardian = address(0);
     }
 
-    function __queueSetTimelockPendingAdmin(address newPendingAdmin, uint256 eta) public {
+    function __queueSetTimelockPendingAdmin(address newPendingAdmin, uint64 eta) public {
         require(
             msg.sender == guardian,
             "Governor::__queueSetTimelockPendingAdmin: sender must be gov guardian"
@@ -430,7 +434,7 @@ contract Governor {
         );
     }
 
-    function __executeSetTimelockPendingAdmin(address newPendingAdmin, uint256 eta) public {
+    function __executeSetTimelockPendingAdmin(address newPendingAdmin, uint64 eta) public {
         require(
             msg.sender == guardian,
             "Governor::__executeSetTimelockPendingAdmin: sender must be gov guardian"
@@ -444,17 +448,6 @@ contract Governor {
         );
     }
 
-    function add256(uint256 a, uint256 b) internal pure returns (uint256) {
-        uint256 c = a + b;
-        require(c >= a, "addition overflow");
-        return c;
-    }
-
-    function sub256(uint256 a, uint256 b) internal pure returns (uint256) {
-        require(b <= a, "subtraction underflow");
-        return a - b;
-    }
-
     function getChainId() internal pure returns (uint256) {
         uint256 chainId;
         // solhint-disable no-inline-assembly
@@ -466,9 +459,9 @@ contract Governor {
 }
 
 interface TimelockInterface {
-    function delay() external view returns (uint256);
+    function delay() external view returns (uint64);
 
-    function gracePeriod() external view returns (uint256);
+    function gracePeriod() external view returns (uint64);
 
     function acceptAdmin() external;
 
@@ -479,7 +472,7 @@ interface TimelockInterface {
         uint256 value,
         string calldata signature,
         bytes calldata data,
-        uint256 eta
+        uint64 eta
     ) external returns (bytes32);
 
     function cancelTransaction(
@@ -487,7 +480,7 @@ interface TimelockInterface {
         uint256 value,
         string calldata signature,
         bytes calldata data,
-        uint256 eta
+        uint64 eta
     ) external;
 
     function executeTransaction(
@@ -495,10 +488,10 @@ interface TimelockInterface {
         uint256 value,
         string calldata signature,
         bytes calldata data,
-        uint256 eta
+        uint64 eta
     ) external payable returns (bytes memory);
 }
 
 interface TokenInterface {
-    function getPriorVotes(address account, uint256 blockNumber) external view returns (uint96);
+    function getPriorVotes(address account, uint64 blockNumber) external view returns (uint96);
 }

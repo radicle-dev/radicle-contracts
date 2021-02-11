@@ -5,19 +5,24 @@ pragma solidity ^0.7.5;
 import "@ensdomains/ens/contracts/ENS.sol";
 import "./Governance/RadicleToken.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import "./libraries/SafeMath.sol";
 
 // commitments are kept in a seperate contract to allow the state to be reused
 // between different versions of the registrar
 contract Commitments {
+    using SafeMath64 for uint64;
+
     address public owner;
+
+    /// Mapping from the commitment to the block number in which the commitment was made
+    mapping(bytes32 => uint256) public commited;
+
+    event SetOwner(address usr);
+
     modifier auth {
         require(msg.sender == owner, "Commitments: unauthorized");
         _;
     }
-    event SetOwner(address usr);
-
-    /// Mapping from the commitment to the block number in which the commitment was made
-    mapping(bytes32 => uint256) public commited;
 
     constructor() {
         owner = msg.sender;
@@ -57,12 +62,6 @@ contract Registrar {
     /// The token ID for the node in the `eth` TLD, eg. sha256("radicle").
     uint256 public immutable tokenId;
 
-    /// The minimum number of blocks that must have passed between a commitment and name registration
-    uint256 public minCommitmentAge;
-
-    /// Registration fee in *Radicle* (uRads).
-    uint256 public registrationFeeRad = 10e18;
-
     /// @notice The EIP-712 typehash for the contract's domain
     bytes32 public constant DOMAIN_TYPEHASH =
         keccak256("EIP712Domain(string name,uint256 chainId,address verifyingContract)");
@@ -71,22 +70,29 @@ contract Registrar {
     bytes32 public constant COMMIT_TYPEHASH =
         keccak256("Commit(bytes32 commitment,uint256 nonce,uint256 expiry,uint256 submissionFee)");
 
+    /// The minimum number of blocks that must have passed between a commitment and name registration
+    uint64 public minCommitmentAge;
+
+    /// Registration fee in *Radicle* (uRads).
+    uint96 public registrationFeeRad = 10e18;
+
+    /// The contract admin who can set fees.
+    address public admin;
+
     /// @notice A record of states for signing / validating signatures
     mapping(address => uint256) public nonces;
-
-    // --- LOGS ---
 
     /// @notice A name was registered.
     event NameRegistered(string indexed name, bytes32 indexed label, address indexed owner);
 
     /// @notice A commitment was made
-    event CommitmentMade(bytes32 commitment, uint256 blockNumber);
+    event CommitmentMade(bytes32 commitment, uint64 blockNumber);
 
     /// @notice The contract admin was changed
     event AdminChanged(address newAdmin);
 
     /// @notice The registration fee was changed
-    event RegistrationRadFeeChanged(uint256 amt);
+    event RegistrationRadFeeChanged(uint96 amt);
 
     /// @notice The ownership of the domain was changed
     event DomainOwnershipChanged(address newOwner);
@@ -98,12 +104,7 @@ contract Registrar {
     event TTLChanged(uint64 amt);
 
     /// @notice The minimum age for a commitment was changed
-    event MinCommitmentAgeChanged(uint256 amt);
-
-    // --- AUTH ---
-
-    /// The contract admin who can set fees.
-    address public admin;
+    event MinCommitmentAgeChanged(uint64 amt);
 
     /// Protects admin-only functions.
     modifier adminOnly {
@@ -117,7 +118,7 @@ contract Registrar {
         ENS _ens,
         RadicleToken _rad,
         address _admin,
-        uint256 _minCommitmentAge,
+        uint64 _minCommitmentAge,
         bytes32 _radNode,
         uint256 _tokenId
     ) {
@@ -201,7 +202,7 @@ contract Registrar {
         rad.burnFrom(payer, registrationFeeRad);
         commitments.commit(commitment);
 
-        emit CommitmentMade(commitment, block.number);
+        emit CommitmentMade(commitment, SafeMath64.from(block.number));
     }
 
     /// Register a subdomain
@@ -271,13 +272,13 @@ contract Registrar {
     }
 
     /// Set the minimum commitment age
-    function setMinCommitmentAge(uint256 amt) public adminOnly {
+    function setMinCommitmentAge(uint64 amt) public adminOnly {
         minCommitmentAge = amt;
         emit MinCommitmentAgeChanged(amt);
     }
 
     /// Set a new registration fee
-    function setRadRegistrationFee(uint256 amt) public adminOnly {
+    function setRadRegistrationFee(uint96 amt) public adminOnly {
         registrationFeeRad = amt;
         emit RegistrationRadFeeChanged(amt);
     }
