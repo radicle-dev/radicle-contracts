@@ -1,5 +1,7 @@
 // Rinkeby TUSDT: 0xd92e713d051c37ebb2561803a3b5fbabc4962431
 // Rinkeby RAD: 0x66eF97b9EDE0c21EFc19c98a66245cd7C9791e28
+// Rinkeyby Core Pool Factory: 0x9C84391B443ea3a48788079a5f98e2EaD55c9309
+// Rinkeby CRP Factory: 0xA3F9145CB0B50D907930840BB2dcfF4146df8Ab4
 
 pragma solidity ^0.7.5;
 pragma experimental ABIEncoderV2;
@@ -44,6 +46,8 @@ library BalancerConstants {
 interface IConfigurableRightsPool {
     function whitelistLiquidityProvider(address provider) external;
     function joinPool(uint256 poolAmountOut, uint256[] calldata maxAmountsIn) external;
+    function createPool(uint initialSupply) external;
+    function bPool() external view returns (address);
 }
 
 interface ICRPFactory {
@@ -59,7 +63,7 @@ interface IERC20Decimal is IERC20 {
 }
 
 contract Phase1 {
-    IConfigurableRightsPool public immutable pool;
+    IConfigurableRightsPool public immutable crpPool;
     IERC20Decimal public immutable radToken;
     IERC20Decimal public immutable usdcToken;
 
@@ -73,10 +77,10 @@ contract Phase1 {
     ) {
         ICRPFactory factory = ICRPFactory(crpFactory);
 
-        uint256 radTokenBalance = 4 * (10 ** _radToken.decimals()); // 4 RAD
+        uint256 radTokenBalance = 4000000 * (10 ** _radToken.decimals()); // 4 million RAD
         uint256 radTokenWeight = (93 * BalancerConstants.BONE) / 2;
 
-        uint256 usdcTokenBalance = 3 * (10 ** _usdcToken.decimals()); // 3 USDC
+        uint256 usdcTokenBalance = 3000000 * (10 ** _usdcToken.decimals()); // 3 million USDC
         uint256 usdcTokenWeight = (7 * BalancerConstants.BONE) / 2;
 
         Rights memory rights;
@@ -104,20 +108,24 @@ contract Phase1 {
         params.tokenWeights[1] = usdcTokenWeight;
         params.swapFee = BalancerConstants.MIN_FEE;
 
-        IConfigurableRightsPool _pool = factory.newCrp(bFactory, params, rights);
-        _pool.whitelistLiquidityProvider(lp);
+        IConfigurableRightsPool _crpPool = factory.newCrp(bFactory, params, rights);
+        _crpPool.whitelistLiquidityProvider(lp);
 
-        pool = _pool;
+        crpPool = _crpPool;
         radToken = _radToken;
         usdcToken = _usdcToken;
     }
 
-    // TODO: Call approve on both tokens!
-    function joinPool() public {
-        uint256[] memory maxAmountsIn = new uint256[](2);
-        maxAmountsIn[0] = 4000000 * (10 ** radToken.decimals()); // 4 million RAD
-        maxAmountsIn[1] = 3000000 * (10 ** usdcToken.decimals()); // 3 million USDC
+    function createPool() public {
+        uint256 MAX_INT = 2**256 - 1;
 
-        pool.joinPool(0, maxAmountsIn);
+        radToken.approve(address(crpPool), MAX_INT);
+        usdcToken.approve(address(crpPool), MAX_INT);
+
+        crpPool.createPool(100 * BalancerConstants.BONE);
+    }
+
+    function bPool() public view returns (address) {
+        return crpPool.bPool();
     }
 }

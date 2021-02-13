@@ -38,6 +38,7 @@
     "build": "hardhat compile && tsc",
     "deploy:testEns": "ts-node -e 'require(\"./src/deploy-to-network.ts\").testEns();'",
     "deploy:phase0": "ts-node -e 'require(\"./src/deploy-to-network.ts\").phase0();'",
+    "deploy:phase1": "ts-node -e 'require(\"./src/deploy-to-network.ts\").phase1();'",
     "deploy:vestingTokens": "ts-node -e 'require(\"./src/deploy-to-network.ts\").vestingTokens();'",
     "deploy:playground": "ts-node -e 'require(\"./src/deploy-to-network.ts\").playground();'",
     "prepare": "yarn prepack",

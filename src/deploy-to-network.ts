@@ -44,7 +44,8 @@ export async function phase1(): Promise<void> {
     deployPhase1(signer, bFactory, crpFactory, radAddr, usdcAddr, lpAddr)
   );
 
-  printDeployed("LBP Pool", await phase1.pool());
+  printDeployed("CRP Pool", await phase1.crpPool());
+  printDeployed("Core Pool", await phase1.bPool());
 }
 
 export async function vestingTokens(): Promise<void> {
