@@ -48,7 +48,17 @@ interface IConfigurableRightsPool {
 
     function joinPool(uint256 poolAmountOut, uint256[] calldata maxAmountsIn) external;
 
-    function createPool(uint256 initialSupply) external;
+    function createPool(
+        uint initialSupply,
+        uint minimumWeightChangeBlockPeriodParam,
+        uint addTokenTimeLockInBlocksParam
+    ) external;
+
+    function updateWeightsGradually(
+        uint[] calldata newWeights,
+        uint startBlock,
+        uint endBlock
+    ) external;
 
     function bPool() external view returns (address);
 }
@@ -81,10 +91,10 @@ contract Phase1 {
         ICRPFactory factory = ICRPFactory(crpFactory);
 
         uint256 radTokenBalance = 4000000 * (10**_radToken.decimals()); // 4 million RAD
-        uint256 radTokenWeight = (93 * BalancerConstants.BONE) / 2;
+        uint256 radTokenWeight = 38 * BalancerConstants.BONE;
 
         uint256 usdcTokenBalance = 3000000 * (10**_usdcToken.decimals()); // 3 million USDC
-        uint256 usdcTokenWeight = (7 * BalancerConstants.BONE) / 2;
+        uint256 usdcTokenWeight = 2 * BalancerConstants.BONE;
 
         Rights memory rights;
         rights.canPauseSwapping = false;
@@ -95,8 +105,8 @@ contract Phase1 {
         rights.canChangeCap = false;
 
         PoolParams memory params;
-        params.poolTokenSymbol = "BRAD";
-        params.poolTokenName = "Balancer RAD";
+        params.poolTokenSymbol = "RADP";
+        params.poolTokenName = "RAD Pool Token";
 
         params.constituentTokens = new address[](2);
         params.tokenBalances = new uint256[](2);
@@ -119,13 +129,33 @@ contract Phase1 {
         usdcToken = _usdcToken;
     }
 
-    function createPool() public {
+    function createPool(
+        uint256 minimumWeightChangeBlockPeriod,
+        uint256 addTokenTimeLockInBlocks
+    ) public {
         uint256 MAX_INT = 2**256 - 1;
 
         radToken.approve(address(crpPool), MAX_INT);
         usdcToken.approve(address(crpPool), MAX_INT);
 
-        crpPool.createPool(100 * BalancerConstants.BONE);
+        uint256 hourBlocks = 266;
+        uint256 dayBlocks = hourBlocks * 24;
+        uint256 blockRange = dayBlocks * 2;
+
+        crpPool.createPool(
+            100 * BalancerConstants.BONE,
+            blockRange,
+            hourBlocks
+        );
+
+        uint256[] memory endWeights = new uint256[](2);
+        endWeights[0] = 20 * BalancerConstants.BONE;
+        endWeights[1] = 20 * BalancerConstants.BONE;
+
+        uint256 startBlock = block.number + hourBlocks;
+        uint256 endBlock = startBlock + blockRange;
+
+        crpPool.updateWeightsGradually(endWeights, startBlock, endBlock);
     }
 
     function bPool() public view returns (address) {
