@@ -99,7 +99,7 @@ function askForSigningKey(keyUsage: string): SigningKey {
 }
 
 function askForNetwork(networkUsage: string): string {
-  const networks = ["mainnet", "ropsten"];
+  const networks = ["mainnet", "ropsten", "rinkeby"];
   const query = "Enter the network " + networkUsage;
   const network = keyInSelect(networks, query, { cancel: false });
   return networks[network];
