@@ -45,8 +45,11 @@ library BalancerConstants {
 
 interface IConfigurableRightsPool {
     function whitelistLiquidityProvider(address provider) external;
+
     function joinPool(uint256 poolAmountOut, uint256[] calldata maxAmountsIn) external;
-    function createPool(uint initialSupply) external;
+
+    function createPool(uint256 initialSupply) external;
+
     function bPool() external view returns (address);
 }
 
@@ -77,10 +80,10 @@ contract Phase1 {
     ) {
         ICRPFactory factory = ICRPFactory(crpFactory);
 
-        uint256 radTokenBalance = 4000000 * (10 ** _radToken.decimals()); // 4 million RAD
+        uint256 radTokenBalance = 4000000 * (10**_radToken.decimals()); // 4 million RAD
         uint256 radTokenWeight = (93 * BalancerConstants.BONE) / 2;
 
-        uint256 usdcTokenBalance = 3000000 * (10 ** _usdcToken.decimals()); // 3 million USDC
+        uint256 usdcTokenBalance = 3000000 * (10**_usdcToken.decimals()); // 3 million USDC
         uint256 usdcTokenWeight = (7 * BalancerConstants.BONE) / 2;
 
         Rights memory rights;

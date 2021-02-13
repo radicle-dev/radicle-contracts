@@ -291,17 +291,12 @@ export async function deployPhase1(
   crpFactory: string,
   radAddr: string,
   usdcAddr: string,
-  lpAddr: string,
+  lpAddr: string
 ): Promise<Phase1> {
   return deployOk(
-    new Phase1__factory(signer).deploy(
-      bFactory,
-      crpFactory,
-      radAddr,
-      usdcAddr,
-      lpAddr,
-      { gasLimit: 8 * 10 ** 6 }
-    )
+    new Phase1__factory(signer).deploy(bFactory, crpFactory, radAddr, usdcAddr, lpAddr, {
+      gasLimit: 8 * 10 ** 6,
+    })
   );
 }
 
