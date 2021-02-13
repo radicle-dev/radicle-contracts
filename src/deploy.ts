@@ -14,6 +14,7 @@ import { EthPool } from "../contract-bindings/ethers/EthPool";
 import { Exchange } from "../contract-bindings/ethers/Exchange";
 import { Governor } from "../contract-bindings/ethers/Governor";
 import { Phase0 } from "../contract-bindings/ethers/Phase0";
+import { Phase1 } from "../contract-bindings/ethers/Phase1";
 import { RadicleToken } from "../contract-bindings/ethers/RadicleToken";
 import { Registrar } from "../contract-bindings/ethers/Registrar";
 import { Timelock } from "../contract-bindings/ethers/Timelock";
@@ -30,6 +31,7 @@ import {
   IERC20__factory,
   IERC721__factory,
   Phase0__factory,
+  Phase1__factory,
   RadicleToken__factory,
   Registrar__factory,
   StablePriceOracle__factory,
@@ -278,6 +280,26 @@ export async function deployPhase0(
       ensAddr,
       utils.namehash(ethLabel + ".eth"),
       ethLabel,
+      { gasLimit: 8 * 10 ** 6 }
+    )
+  );
+}
+
+export async function deployPhase1(
+  signer: Signer,
+  bFactory: string,
+  crpFactory: string,
+  radAddr: string,
+  usdcAddr: string,
+  lpAddr: string,
+): Promise<Phase1> {
+  return deployOk(
+    new Phase1__factory(signer).deploy(
+      bFactory,
+      crpFactory,
+      radAddr,
+      usdcAddr,
+      lpAddr,
       { gasLimit: 8 * 10 ** 6 }
     )
   );

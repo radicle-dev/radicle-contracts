@@ -1,4 +1,4 @@
-import { deployTestEns, deployVestingToken, deployPhase0 } from "./deploy";
+import { deployTestEns, deployVestingToken, deployPhase0, deployPhase1 } from "./deploy";
 import { BigNumber, Contract, Wallet, Signer, providers, utils } from "ethers";
 import SigningKey = utils.SigningKey;
 import { keyInSelect, keyInYNStrict, question } from "readline-sync";
@@ -31,6 +31,20 @@ export async function phase0(): Promise<void> {
   printDeployed("Governor", await phase0.governor());
   printDeployed("Registrar", await phase0.registrar());
   console.log(`Remember to give the '${ethLabel}.eth' domain to the registrar`);
+}
+
+export async function phase1(): Promise<void> {
+  const signer = await connectPrivateKeySigner();
+  const bFactory = askForAddress("of the Balancer BFactory");
+  const crpFactory = askForAddress("of the Balancer CRPFactory");
+  const radAddr = askForAddress("of the Radicle Token");
+  const usdcAddr = askForAddress("of the USDC Token");
+  const lpAddr = askForAddress("of the liquidity provider (LP)");
+  const phase1 = await deploy("phase1", () =>
+    deployPhase1(signer, bFactory, crpFactory, radAddr, usdcAddr, lpAddr)
+  );
+
+  printDeployed("LBP Pool", await phase1.pool());
 }
 
 export async function vestingTokens(): Promise<void> {
