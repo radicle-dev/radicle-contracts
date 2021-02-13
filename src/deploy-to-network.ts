@@ -16,10 +16,10 @@ export async function testEns(): Promise<void> {
 
 export async function phase0(): Promise<void> {
   const signer = await connectPrivateKeySigner();
-  const governorGuardian = askForAddress("of the governor guardian");
+  const governorGuardian = "0x0000000000000000000000000000000000000000";
   const tokensHolder = askForAddress("to hold all the Radicle Tokens");
-  const ensAddr = askForAddress("of the ENS");
-  const ethLabel = askFor("an 'eth' subdomain on which the registrar should operate");
+  const ensAddr = "0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e";
+  const ethLabel = "radicle";
   const timelockDelay = 60 * 60 * 24 * 2;
 
   const phase0 = await deploy("phase0", () =>
