@@ -48,16 +48,18 @@ interface IConfigurableRightsPool {
 
     function joinPool(uint256 poolAmountOut, uint256[] calldata maxAmountsIn) external;
 
+    function setController(address newOwner) external;
+
     function createPool(
-        uint initialSupply,
-        uint minimumWeightChangeBlockPeriodParam,
-        uint addTokenTimeLockInBlocksParam
+        uint256 initialSupply,
+        uint256 minimumWeightChangeBlockPeriodParam,
+        uint256 addTokenTimeLockInBlocksParam
     ) external;
 
     function updateWeightsGradually(
-        uint[] calldata newWeights,
-        uint startBlock,
-        uint endBlock
+        uint256[] calldata newWeights,
+        uint256 startBlock,
+        uint256 endBlock
     ) external;
 
     function bPool() external view returns (address);
@@ -79,6 +81,12 @@ contract Phase1 {
     IConfigurableRightsPool public immutable crpPool;
     IERC20Decimal public immutable radToken;
     IERC20Decimal public immutable usdcToken;
+    Sale public immutable sale;
+
+    uint256 public constant RAD_BALANCE = 4000000; // 4 million RAD
+    uint256 public constant USDC_BALANCE = 3000000; // 3 million USDC
+    uint256 public constant RAD_WEIGHT = 38;
+    uint256 public constant USDC_WEIGHT = 2;
 
     // TODO: Call approve on both tokens!
     constructor(
@@ -90,11 +98,11 @@ contract Phase1 {
     ) {
         ICRPFactory factory = ICRPFactory(crpFactory);
 
-        uint256 radTokenBalance = 4000000 * (10**_radToken.decimals()); // 4 million RAD
-        uint256 radTokenWeight = 38 * BalancerConstants.BONE;
+        uint256 radTokenBalance = RAD_BALANCE * (10**_radToken.decimals());
+        uint256 radTokenWeight = RAD_WEIGHT * BalancerConstants.BONE;
 
-        uint256 usdcTokenBalance = 3000000 * (10**_usdcToken.decimals()); // 3 million USDC
-        uint256 usdcTokenWeight = 2 * BalancerConstants.BONE;
+        uint256 usdcTokenBalance = USDC_BALANCE * (10**_usdcToken.decimals());
+        uint256 usdcTokenWeight = USDC_WEIGHT * BalancerConstants.BONE;
 
         Rights memory rights;
         rights.canPauseSwapping = false;
@@ -124,41 +132,70 @@ contract Phase1 {
         IConfigurableRightsPool _crpPool = factory.newCrp(bFactory, params, rights);
         _crpPool.whitelistLiquidityProvider(lp);
 
+        // Create the sale contract and transfer ownership of the CRP to the sale contract.
+        sale = new Sale(_crpPool, radTokenBalance, usdcTokenBalance);
+        _crpPool.setController(address(sale));
+
         crpPool = _crpPool;
         radToken = _radToken;
         usdcToken = _usdcToken;
     }
 
-    function createPool(
-        uint256 minimumWeightChangeBlockPeriod,
-        uint256 addTokenTimeLockInBlocks
-    ) public {
-        uint256 MAX_INT = 2**256 - 1;
+    function bPool() public view returns (address) {
+        return crpPool.bPool();
+    }
+}
 
-        radToken.approve(address(crpPool), MAX_INT);
-        usdcToken.approve(address(crpPool), MAX_INT);
+contract Sale {
+    IConfigurableRightsPool public immutable crpPool;
 
-        uint256 hourBlocks = 266;
-        uint256 dayBlocks = hourBlocks * 24;
-        uint256 blockRange = dayBlocks * 2;
+    uint256 immutable radTokenBalance;
+    uint256 immutable usdcTokenBalance;
+    uint256 immutable blocksPerHour;
 
-        crpPool.createPool(
-            100 * BalancerConstants.BONE,
-            blockRange,
-            hourBlocks
+    uint256 public constant RAD_END_WEIGHT = 20;
+    uint256 public constant USDC_END_WEIGHT = 20;
+
+    constructor(
+        IConfigurableRightsPool _crpPool,
+        uint256 _radTokenBalance,
+        uint256 _usdcTokenBalance,
+        uint256 _blocksPerHour
+    ) {
+        crpPool = _crpPool;
+        radTokenBalance = _radTokenBalance;
+        usdcTokenBalance = _usdcTokenBalance;
+        blocksPerHour = _blocksPerHour;
+    }
+
+    function begin(uint256 minimumWeightChangeBlockPeriod, uint256 addTokenTimeLockInBlocks)
+        public
+    {
+        radToken.approve(address(this), radTokenBalance);
+        usdcToken.approve(address(this), usdcTokenBalance);
+        radToken.transfer(address(this), radTokenBalance);
+        usdcToken.transfer(address(this), usdcTokenBalance);
+
+        radToken.approve(address(crpPool), radTokenBalance);
+        usdcToken.approve(address(crpPool), usdcTokenBalance);
+
+        uint256 poolTokens = 100 * BalancerConstants.BONE;
+
+        crpPool.createPool(poolTokens, minimumWeightChangeBlockPeriod, addTokenTimeLockInBlocks);
+
+        require(
+            crpPool.totalSupply() == poolTokens,
+            "Sale::begin: pool tokens must match total supply"
         );
 
         uint256[] memory endWeights = new uint256[](2);
-        endWeights[0] = 20 * BalancerConstants.BONE;
-        endWeights[1] = 20 * BalancerConstants.BONE;
+        endWeights[0] = RAD_END_WEIGHT * BalancerConstants.BONE;
+        endWeights[1] = USDC_END_WEIGHT * BalancerConstants.BONE;
 
-        uint256 startBlock = block.number + hourBlocks;
-        uint256 endBlock = startBlock + blockRange;
+        uint256 startBlock = block.number + blocksPerHour;
+        uint256 endBlock = startBlock + minimumWeightChangeBlockPeriod;
 
         crpPool.updateWeightsGradually(endWeights, startBlock, endBlock);
-    }
-
-    function bPool() public view returns (address) {
-        return crpPool.bPool();
+        crpPool.transfer(msg.sender, poolTokens);
     }
 }
