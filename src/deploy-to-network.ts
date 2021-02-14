@@ -45,7 +45,7 @@ export async function phase1(): Promise<void> {
   );
 
   printDeployed("CRP Pool", await phase1.crpPool());
-  printDeployed("Core Pool", await phase1.bPool());
+  printDeployed("Sale", await phase1.sale());
 }
 
 export async function vestingTokens(): Promise<void> {

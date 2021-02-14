@@ -1,7 +1,13 @@
 // Rinkeby TUSDT: 0xd92e713d051c37ebb2561803a3b5fbabc4962431
 // Rinkeby RAD: 0x66eF97b9EDE0c21EFc19c98a66245cd7C9791e28
-// Rinkeyby Core Pool Factory: 0x9C84391B443ea3a48788079a5f98e2EaD55c9309
+// Rinkeyby Core Pool Factory (BFactory): 0x9C84391B443ea3a48788079a5f98e2EaD55c9309
 // Rinkeby CRP Factory: 0xA3F9145CB0B50D907930840BB2dcfF4146df8Ab4
+// minimumWeightChangeBlockPeriod = 2 days (12800 blocks)
+// addTokenTimeLockInBlocks = 1 hour (266 blocks)
+//
+// radToken.approve(address(sale), radTokenBalance);
+// usdcToken.approve(address(sale), usdcTokenBalance);
+// begin(12800, 266, 266)
 
 pragma solidity ^0.7.5;
 pragma experimental ABIEncoderV2;
@@ -43,7 +49,7 @@ library BalancerConstants {
     uint256 public constant MAX_FEE = BONE / 10;
 }
 
-interface IConfigurableRightsPool {
+interface IConfigurableRightsPool is IERC20 {
     function whitelistLiquidityProvider(address provider) external;
 
     function joinPool(uint256 poolAmountOut, uint256[] calldata maxAmountsIn) external;
@@ -133,48 +139,55 @@ contract Phase1 {
         _crpPool.whitelistLiquidityProvider(lp);
 
         // Create the sale contract and transfer ownership of the CRP to the sale contract.
-        sale = new Sale(_crpPool, radTokenBalance, usdcTokenBalance);
-        _crpPool.setController(address(sale));
+        Sale _sale = new Sale(_crpPool, _radToken, _usdcToken, radTokenBalance, usdcTokenBalance);
+        _crpPool.setController(address(_sale));
 
+        sale = _sale;
         crpPool = _crpPool;
         radToken = _radToken;
         usdcToken = _usdcToken;
-    }
-
-    function bPool() public view returns (address) {
-        return crpPool.bPool();
     }
 }
 
 contract Sale {
     IConfigurableRightsPool public immutable crpPool;
 
-    uint256 immutable radTokenBalance;
-    uint256 immutable usdcTokenBalance;
-    uint256 immutable blocksPerHour;
+    uint256 public immutable radTokenBalance;
+    uint256 public immutable usdcTokenBalance;
+
+    IERC20 public immutable radToken;
+    IERC20 public immutable usdcToken;
 
     uint256 public constant RAD_END_WEIGHT = 20;
     uint256 public constant USDC_END_WEIGHT = 20;
 
     constructor(
         IConfigurableRightsPool _crpPool,
+        IERC20 _radToken,
+        IERC20 _usdcToken,
         uint256 _radTokenBalance,
-        uint256 _usdcTokenBalance,
-        uint256 _blocksPerHour
+        uint256 _usdcTokenBalance
     ) {
         crpPool = _crpPool;
+        radToken = _radToken;
+        usdcToken = _usdcToken;
         radTokenBalance = _radTokenBalance;
         usdcTokenBalance = _usdcTokenBalance;
-        blocksPerHour = _blocksPerHour;
     }
 
-    function begin(uint256 minimumWeightChangeBlockPeriod, uint256 addTokenTimeLockInBlocks)
-        public
-    {
-        radToken.approve(address(this), radTokenBalance);
-        usdcToken.approve(address(this), usdcTokenBalance);
-        radToken.transfer(address(this), radTokenBalance);
-        usdcToken.transfer(address(this), usdcTokenBalance);
+    function begin(
+        uint256 minimumWeightChangeBlockPeriod,
+        uint256 addTokenTimeLockInBlocks,
+        uint256 blocksPerHour
+    ) public {
+        require(
+            radToken.transferFrom(msg.sender, address(this), radTokenBalance),
+            "Sale::begin: transfer of RAD must succeed"
+        );
+        require(
+            usdcToken.transferFrom(msg.sender, address(this), usdcTokenBalance),
+            "Sale::begin: transfer of USDC must succeed"
+        );
 
         radToken.approve(address(crpPool), radTokenBalance);
         usdcToken.approve(address(crpPool), usdcTokenBalance);
@@ -197,5 +210,9 @@ contract Sale {
 
         crpPool.updateWeightsGradually(endWeights, startBlock, endBlock);
         crpPool.transfer(msg.sender, poolTokens);
+    }
+
+    function bPool() public view returns (address) {
+        return crpPool.bPool();
     }
 }
