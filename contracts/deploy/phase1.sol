@@ -178,7 +178,8 @@ contract Sale {
     function begin(
         uint256 minimumWeightChangeBlockPeriod,
         uint256 addTokenTimeLockInBlocks,
-        uint256 blocksPerHour
+        uint256 weightChangeStartDelay,
+        address controller
     ) public {
         require(
             radToken.transferFrom(msg.sender, address(this), radTokenBalance),
@@ -205,11 +206,12 @@ contract Sale {
         endWeights[0] = RAD_END_WEIGHT * BalancerConstants.BONE;
         endWeights[1] = USDC_END_WEIGHT * BalancerConstants.BONE;
 
-        uint256 startBlock = block.number + blocksPerHour;
+        uint256 startBlock = block.number + weightChangeStartDelay;
         uint256 endBlock = startBlock + minimumWeightChangeBlockPeriod;
 
         crpPool.updateWeightsGradually(endWeights, startBlock, endBlock);
         crpPool.transfer(msg.sender, poolTokens);
+        crpPool.setController(controller);
     }
 
     function bPool() public view returns (address) {
