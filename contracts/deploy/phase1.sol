@@ -94,7 +94,6 @@ contract Phase1 {
     uint256 public constant RAD_WEIGHT = 38;
     uint256 public constant USDC_WEIGHT = 2;
 
-    // TODO: Call approve on both tokens!
     constructor(
         address bFactory,
         address crpFactory,
