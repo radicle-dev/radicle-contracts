@@ -280,7 +280,7 @@ export async function deployPhase0(
       ensAddr,
       utils.namehash(ethLabel + ".eth"),
       ethLabel,
-      { gasLimit: 8 * 10 ** 6 }
+      { gasLimit: 10 * 10 ** 6 }
     )
   );
 }
