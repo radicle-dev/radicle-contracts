@@ -55,7 +55,8 @@ contract Phase0 {
         _token.transfer(address(_timelock), TREASURY_ALLOCATION);
         require(_token.balanceOf(address(this)) == 0, "All tokens are allocated");
         require(
-            MONADIC_ALLOCATION + FOUNDATION_ALLOCATION + TREASURY_ALLOCATION == _token.totalSupply(),
+            MONADIC_ALLOCATION + FOUNDATION_ALLOCATION + TREASURY_ALLOCATION ==
+                _token.totalSupply(),
             "All tokens are allocated"
         );
 
