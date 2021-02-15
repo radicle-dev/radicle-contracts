@@ -131,7 +131,7 @@ describe("Radicle Token", () => {
 
     it("has given symbol", async () => {
       const [token] = await getRadicleTokenSigners();
-      expect(await token.symbol()).to.equal("RADICLE");
+      expect(await token.symbol()).to.equal("RAD");
     });
   });
 
