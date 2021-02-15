@@ -264,7 +264,8 @@ export async function deployTestEns(signer: Signer, label: string): Promise<ENS>
 
 export async function deployPhase0(
   signer: Signer,
-  tokensHolder: string,
+  monadicAddr: string,
+  foundationAddr: string,
   timelockDelay: number,
   governorGuardian: string,
   ensAddr: string,
@@ -272,7 +273,8 @@ export async function deployPhase0(
 ): Promise<Phase0> {
   return deployOk(
     new Phase0__factory(signer).deploy(
-      tokensHolder,
+      monadicAddr,
+      foundationAddr,
       timelockDelay,
       governorGuardian,
       ensAddr,

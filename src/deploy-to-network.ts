@@ -17,13 +17,14 @@ export async function testEns(): Promise<void> {
 export async function phase0(): Promise<void> {
   const signer = await connectPrivateKeySigner();
   const governorGuardian = askForAddress("of the governor guardian");
-  const tokensHolder = askForAddress("to hold all the Radicle Tokens");
+  const monadicAddr = askForAddress("of Monadic");
+  const foundationAddr = askForAddress("of the Foundation");
   const ensAddr = askForAddress("of the ENS");
   const ethLabel = askFor("an 'eth' subdomain on which the registrar should operate");
   const timelockDelay = 60 * 60 * 24 * 2;
 
   const phase0 = await deploy("phase0", () =>
-    deployPhase0(signer, tokensHolder, timelockDelay, governorGuardian, ensAddr, ethLabel)
+    deployPhase0(signer, monadicAddr, foundationAddr, timelockDelay, governorGuardian, ensAddr, ethLabel)
   );
 
   printDeployed("Radicle Token", await phase0.token());
