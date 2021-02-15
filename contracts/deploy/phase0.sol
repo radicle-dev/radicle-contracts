@@ -26,6 +26,7 @@ contract Phase0 {
     uint256 public constant FOUNDATION_ALLOCATION = 13925009e18;
     uint256 public constant TREASURY_ALLOCATION = 53853599e18;
 
+    // solhint-disable reentrancy
     constructor(
         address _monadicAddr,
         address _foundationAddr,
