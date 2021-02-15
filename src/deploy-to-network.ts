@@ -24,7 +24,15 @@ export async function phase0(): Promise<void> {
   const timelockDelay = 60 * 60 * 24 * 2;
 
   const phase0 = await deploy("phase0", () =>
-    deployPhase0(signer, monadicAddr, foundationAddr, timelockDelay, governorGuardian, ensAddr, ethLabel)
+    deployPhase0(
+      signer,
+      monadicAddr,
+      foundationAddr,
+      timelockDelay,
+      governorGuardian,
+      ensAddr,
+      ethLabel
+    )
   );
 
   printDeployed("Radicle Token", await phase0.token());
