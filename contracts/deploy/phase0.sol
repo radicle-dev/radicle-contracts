@@ -22,9 +22,9 @@ contract Phase0 {
     bytes32 public immutable namehash;
     string public label;
 
-    uint256 public constant MONADIC_ALLOCATION = 32221392000000000000000000;
-    uint256 public constant FOUNDATION_ALLOCATION = 13925009000000000000000000;
-    uint256 public constant TREASURY_ALLOCATION = 53853599000000000000000000;
+    uint256 public constant MONADIC_ALLOCATION = 32221392e18;
+    uint256 public constant FOUNDATION_ALLOCATION = 13925009e18;
+    uint256 public constant TREASURY_ALLOCATION = 53853599e18;
 
     constructor(
         address _monadicAddr,
