@@ -9,6 +9,7 @@ import {
   ContractReceipt,
   Signer,
 } from "ethers";
+import { Claims } from "../contract-bindings/ethers/Claims";
 import { ENS } from "../contract-bindings/ethers/ENS";
 import { EthPool } from "../contract-bindings/ethers/EthPool";
 import { Exchange } from "../contract-bindings/ethers/Exchange";
@@ -20,6 +21,7 @@ import { Timelock } from "../contract-bindings/ethers/Timelock";
 import { VestingToken } from "../contract-bindings/ethers/VestingToken";
 import {
   BaseRegistrarImplementation__factory,
+  Claims__factory,
   ENSRegistry__factory,
   Erc20Pool__factory,
   Erc20Pool,
@@ -60,6 +62,7 @@ export interface DeployedContracts {
   ens: ENS;
   ethPool: EthPool;
   erc20Pool: Erc20Pool;
+  claims: Claims;
 }
 
 export async function deployAll(signer: Signer): Promise<DeployedContracts> {
@@ -82,8 +85,9 @@ export async function deployAll(signer: Signer): Promise<DeployedContracts> {
   await transferEthDomain(ens, label, registrar.address);
   const ethPool = await deployEthPool(signer, 10);
   const erc20Pool = await deployErc20Pool(signer, 10, rad.address);
+  const claims = await deployClaims(signer);
 
-  return { gov, rad, exchange, registrar, ens, ethPool, erc20Pool };
+  return { gov, rad, exchange, registrar, ens, ethPool, erc20Pool, claims };
 }
 
 export async function deployRadicleToken(signer: Signer, account: string): Promise<RadicleToken> {
@@ -283,6 +287,10 @@ export async function deployPhase0(
       { gasLimit: 10 * 10 ** 6 }
     )
   );
+}
+
+export async function deployClaims(signer: Signer): Promise<Claims> {
+  return deployOk(new Claims__factory(signer).deploy());
 }
 
 async function deployOk<T extends Contract>(contractPromise: Promise<T>): Promise<T> {

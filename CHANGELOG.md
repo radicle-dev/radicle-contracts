@@ -9,6 +9,7 @@ with regard to its JavaScript and TypeScript bindings' APIs and the Ethereum ABI
 
 ### Added
 - Burning capability to Radicle Token
+- Radicle Link ID claims contract
 
 ### Changed
 - Replaced vesting contract with one adapted from Melonport
