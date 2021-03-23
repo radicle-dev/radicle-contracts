@@ -38,51 +38,52 @@ e.g. `v0.0.1`, `v1.0.0`, `v1.2.3` or `v1.0.0-alpha`.
 
 ## Updating CI's base Docker image
 
-1. In `.buildkite/pipeline.yaml`, in value of `.test` -> `env` -> `DOCKER_IMAGE`
-replace image tag (last part after `:`) with a nonexistent tag
-(e.g. `does_not_exist`).
+1. Update Docker's image tag to an unexistent tag
 
-Example:
+  In `.buildkite/pipeline.yaml` > `.test` > `env` > `DOCKER_IMAGE`,
+  replace the image tag with a nonexistent tag (e.g. `does_not_exist`).
 
-```
-DOCKER_IMAGE: gcr.io/opensourcecoin/radicle-registry-eth/ci-base:d78a964e22d65fe45e1dcacdf5538de286e3624e
-```
-to
+  Example:
 
-```
-DOCKER_IMAGE: gcr.io/opensourcecoin/radicle-registry-eth/ci-base:does_not_exist
-```
+  ```
+  DOCKER_IMAGE: gcr.io/opensourcecoin/radicle-registry-eth/ci-base:d78a964e22d65fe45e1dcacdf5538de286e3624e
+  ```
+  to
 
-2. Push the commit with the changes of step 1.
+  ```
+  DOCKER_IMAGE: gcr.io/opensourcecoin/radicle-registry-eth/ci-base:does_not_exist
+  ```
 
-**Notes**:
-  1. let the build agent finish all the work for this commit.
-  2. **Make sure that this commit is preserved!**
+  Now, commit and push this change.
+
+2. Wait for the build agent to build this commit
+
+  **Make sure that this commit is preserved!**
   Do not amend, squash, rebase or delete it.
   It should be merged unmodified into master.
   This way it will be easy to look up the state
   of the project used by the build agent.
 
-  **What happens on the build agent:** no docker image
-  can be found for the given tag, therefore the agent will
-  run the full pipeline and save the docker image under a
-  tag associated with the current commit ID.`
+  **What happens on the build agent:** when no docker image
+  is found for a given tag, the agent will run the full pipeline
+  and save the docker image under a tag associated with the current
+  commit ID.`
 
-3. Copy the current commit ID pushed in step 2. and set it as the new docker image tag.
+3. Update the docker image tag with step 1's commit ID
 
-Example:
-```
-DOCKER_IMAGE: gcr.io/opensourcecoin/radicle-registry/ci-base:does_not_exist
-```
+  Example:
+  ```
+  DOCKER_IMAGE: gcr.io/opensourcecoin/radicle-registry/ci-base:does_not_exist
+  ```
 
-to
+  to
 
-```
-DOCKER_IMAGE: gcr.io/opensourcecoin/radicle-registry/ci-base:e8c699d4827ed893d8dcdab6e72de40732ad5f3c
-```
+  ```
+  DOCKER_IMAGE: gcr.io/opensourcecoin/radicle-registry/ci-base:e8c699d4827ed893d8dcdab6e72de40732ad5f3c
+  ```
 
-**What happens on the build agent:** when any commit with this change is pushed,
-the build agent will find the image under the configured tag.
-It will reuse it instead of rebuilding and save time.
+  **What happens on the build agent:** when any commit with this change is pushed,
+  the build agent will find the image under the configured tag.
+  It will reuse it instead of rebuilding, which saves a lot of time.
 
 
