@@ -1,1 +1,1 @@
-FROM node:10.23.1-buster
+FROM node:12.18.3-buster
