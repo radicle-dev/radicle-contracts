@@ -3,7 +3,7 @@
   command: "ci/run"
   env:
     SHARED_MASTER_CACHE: true
-    DOCKER_IMAGE: gcr.io/opensourcecoin/radicle-registry-eth/ci-base:lift-eat-sleep-repeat
+    DOCKER_IMAGE: gcr.io/opensourcecoin/radicle-registry-eth/ci-base:e0cb6a1dfa2a6fba34128b52294c60451367ee94
     DOCKER_FILE: ci/base-image/Dockerfile
   agents:
     platform: "linux"
