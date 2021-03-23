@@ -7,7 +7,7 @@ import { IERC20 } from "../contract-bindings/ethers/IERC20";
 import { Erc20Pool } from "../contract-bindings/ethers/Erc20Pool";
 import { EthPool } from "../contract-bindings/ethers/EthPool";
 import { ethers } from "hardhat";
-import { Signer, BigNumber, ContractTransaction, BigNumberish } from "ethers";
+import { Signer, BigNumber, BigNumberish, ContractReceipt, ContractTransaction } from "ethers";
 import { expect } from "chai";
 import {
   callOnNextBlock,
@@ -110,6 +110,7 @@ abstract class PoolUser<Pool extends AnyPool> {
   proxyWeightsCountMax: number;
   withdrawAll: BigNumber;
   amtPerSecUnchanged: BigNumber;
+  maxTimestamp: BigNumber;
 
   constructor(pool: Pool, userAddr: string, constants: PoolConstants) {
     this.pool = pool;
@@ -120,6 +121,8 @@ abstract class PoolUser<Pool extends AnyPool> {
     this.proxyWeightsCountMax = constants.proxyWeightsCountMax;
     this.withdrawAll = constants.withdrawAll;
     this.amtPerSecUnchanged = constants.amtPerSecUnchanged;
+    // Same as Pool contract `MAX_TIMESTAMP`
+    this.maxTimestamp = BigNumber.from(1).shl(64).sub(3);
   }
 
   abstract getBalance(): Promise<BigNumber>;
@@ -156,9 +159,10 @@ abstract class PoolUser<Pool extends AnyPool> {
     const receiversAddr = receiverWeightsAddr(setReceivers);
     const proxiesAddr = receiverWeightsAddr(setProxies);
     const expectedReceivers = await this.expectedReceivers(receiversAddr, proxiesAddr);
+    const oldActiveReceivers = await this.getActiveReceivers();
     await this.expectWithdrawableOnNextBlock(balanceFrom);
 
-    await this.submitChangingBalance(
+    const receipt = await this.submitChangingBalance(
       () => this.submitUpdateSender(topUp, withdraw, amtPerSec, receiversAddr, proxiesAddr),
       "updateSender",
       balanceDelta
@@ -167,6 +171,7 @@ abstract class PoolUser<Pool extends AnyPool> {
     await this.expectWithdrawable(balanceTo);
     await this.expectAmtPerSec(expectedAmtPerSec);
     await this.expectReceivers(expectedReceivers);
+    await this.expectUpdateSenderEvents(oldActiveReceivers, receipt);
   }
 
   async updateSenderBalanceUnchanged(
@@ -209,9 +214,9 @@ abstract class PoolUser<Pool extends AnyPool> {
     fn: () => Promise<ContractTransaction>,
     txName: string,
     balanceChangeExpected: BigNumberish
-  ): Promise<void> {
+  ): Promise<ContractReceipt> {
     const balanceBefore = await this.getBalance();
-    await submit(fn(), txName);
+    const receipt = await submit(fn(), txName);
     const balanceAfter = await this.getBalance();
     const balanceChangeActual = balanceAfter.sub(balanceBefore);
     expectBigNumberEq(
@@ -219,6 +224,7 @@ abstract class PoolUser<Pool extends AnyPool> {
       balanceChangeExpected,
       "Unexpected balance change from call to " + txName
     );
+    return receipt;
   }
 
   async setAmtPerSec(amount: BigNumberish): Promise<void> {
@@ -235,6 +241,18 @@ abstract class PoolUser<Pool extends AnyPool> {
 
   async setReceiver(receiver: this, weight: number): Promise<void> {
     await this.updateSenderBalanceUnchanged(this.amtPerSecUnchanged, [[receiver, weight]], []);
+  }
+
+  async getActiveReceivers(): Promise<ProxyReceiverWeights> {
+    const allReceivers = await this.getAllReceivers();
+    const amtPerSec = await this.getAmtPerSec();
+    let weightsSum = 0;
+    for (const [, weights] of allReceivers) {
+      weightsSum += weights.receiverWeight + weights.proxyWeight;
+    }
+    const withdrawable = await this.pool.withdrawable();
+    const areActive = amtPerSec >= weightsSum && withdrawable.gte(amtPerSec);
+    return areActive ? allReceivers : new Map();
   }
 
   async expectSetReceiverReverts(
@@ -369,6 +387,70 @@ abstract class PoolUser<Pool extends AnyPool> {
   async expectProxyWeights(weights: Map<string, number>): Promise<void> {
     const weightsActual = await this.getProxyWeights();
     expect(weightsActual).to.deep.equal(weights, "Unexpected proxy weights list");
+  }
+
+  // Check if the sender update generated proper events.
+  // `oldActiveReceivers` - the receivers of `this` sender, which were
+  // receiving anything at the time of the update
+  async expectUpdateSenderEvents(
+    oldActiveReceivers: ProxyReceiverWeights,
+    receipt: ContractReceipt
+  ): Promise<void> {
+    const filter = this.pool.filters.SenderToReceiverUpdated(null, null, null, null);
+    const events = await this.pool.queryFilter(filter, receipt.blockHash);
+
+    // Assert that all stop sending events are before start sending events
+    let foundStartSending = false;
+    for (const event of events) {
+      const isStartSending = !event.args.amtPerSec.isZero();
+      if (foundStartSending) {
+        expect(isStartSending, "A stop sending event found after a start sending event").to.be.true;
+      }
+      foundStartSending = isStartSending;
+    }
+
+    // Assert that all old receivers who have been getting funds have stop sending events
+    const sender = receipt.from;
+    const blockTime = (await this.pool.provider.getBlock(receipt.blockHash)).timestamp;
+    for (const [receiver, { receiverWeight }] of oldActiveReceivers) {
+      if (receiverWeight != 0) {
+        const errorPrefix = "Stop sending event for receiver " + receiver + " ";
+        const idx = events.findIndex((event) => event.args.receiver == receiver);
+        expect(idx).to.be.not.equal(-1, errorPrefix + "not found");
+        const [event] = events.splice(idx, 1);
+        expect(event.args.sender).to.equal(sender, errorPrefix + "has invalid sender");
+        expectBigNumberEq(event.args.amtPerSec, 0, errorPrefix + "has invalid amtPerSec");
+        expectBigNumberEq(event.args.endTime, blockTime, errorPrefix + "has invalid end time");
+      }
+    }
+
+    // Assert that all current receivers who are getting funds have start sending events
+    const activeReceivers = await this.getActiveReceivers();
+    let weightsSum = 0;
+    for (const [, weights] of activeReceivers) {
+      weightsSum += weights.receiverWeight + weights.proxyWeight;
+    }
+    const amtPerSecPerWeight = Math.floor((await this.getAmtPerSec()) / weightsSum);
+    const amtPerSec = amtPerSecPerWeight * weightsSum;
+    const timeLeft = Number.isInteger(amtPerSec)
+      ? (await this.pool.withdrawable()).div(amtPerSec)
+      : BigNumber.from(0);
+    let endTime = timeLeft.add(blockTime);
+    endTime = endTime.gt(this.maxTimestamp) ? this.maxTimestamp : endTime;
+    for (const [receiver, { receiverWeight }] of activeReceivers) {
+      if (receiverWeight != 0) {
+        const errorPrefix = "Start sending event for receiver " + receiver + " ";
+        const idx = events.findIndex((event) => event.args.receiver == receiver);
+        expect(idx).to.be.not.equal(-1, errorPrefix + "not found");
+        const [event] = events.splice(idx, 1);
+        expect(event.args.sender).to.equal(sender, errorPrefix + "has invalid sender");
+        const amtPerSec = amtPerSecPerWeight * receiverWeight;
+        expectBigNumberEq(event.args.amtPerSec, amtPerSec, errorPrefix + "has invalid amtPerSec");
+        expectBigNumberEq(event.args.endTime, endTime, errorPrefix + "has invalid end time");
+      }
+    }
+
+    expect(events, "Excess sender update events").to.be.empty;
   }
 }
 
