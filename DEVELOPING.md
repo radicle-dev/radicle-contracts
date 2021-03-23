@@ -73,13 +73,13 @@ e.g. `v0.0.1`, `v1.0.0`, `v1.2.3` or `v1.0.0-alpha`.
 
   Example:
   ```
-  DOCKER_IMAGE: gcr.io/opensourcecoin/radicle-registry/ci-base:does_not_exist
+  DOCKER_IMAGE: gcr.io/opensourcecoin/radicle-registry-eth/ci-base:does_not_exist
   ```
 
   to
 
   ```
-  DOCKER_IMAGE: gcr.io/opensourcecoin/radicle-registry/ci-base:e8c699d4827ed893d8dcdab6e72de40732ad5f3c
+  DOCKER_IMAGE: gcr.io/opensourcecoin/radicle-registry-eth/ci-base:e8c699d4827ed893d8dcdab6e72de40732ad5f3c
   ```
 
   **What happens on the build agent:** when any commit with this change is pushed,
