@@ -396,28 +396,53 @@ abstract class PoolUser<Pool extends AnyPool> {
     oldActiveReceivers: ProxyReceiverWeights,
     receipt: ContractReceipt
   ): Promise<void> {
-    const filter = this.pool.filters.SenderToReceiverUpdated(null, null, null, null);
-    const events = await this.pool.queryFilter(filter, receipt.blockHash);
+    const receiverFilter = this.pool.filters.SenderToReceiverUpdated(null, null, null, null);
+    const receiverEvents = await this.pool.queryFilter(receiverFilter, receipt.blockHash);
+    const proxyFilter = this.pool.filters.SenderToProxyUpdated(null, null, null, null);
+    const proxyEvents = await this.pool.queryFilter(proxyFilter, receipt.blockHash);
 
-    // Assert that all stop sending events are before start sending events
-    let foundStartSending = false;
-    for (const event of events) {
+    // Assert that all receiver stop sending events are before start sending events
+    let foundReceiverStartSending = false;
+    for (const event of receiverEvents) {
       const isStartSending = !event.args.amtPerSec.isZero();
-      if (foundStartSending) {
-        expect(isStartSending, "A stop sending event found after a start sending event").to.be.true;
+      if (foundReceiverStartSending) {
+        expect(
+          isStartSending,
+          "A stop sending to a receiver event found after a start sending event"
+        ).to.be.true;
       }
-      foundStartSending = isStartSending;
+      foundReceiverStartSending = isStartSending;
+    }
+
+    // Assert that all proxy stop sending events are before start sending events
+    let foundProxyStartSending = false;
+    for (const event of proxyEvents) {
+      const isStartSending = !event.args.amtPerSec.isZero();
+      if (foundProxyStartSending) {
+        expect(isStartSending, "A stop sending to a proxy event found after a start sending event")
+          .to.be.true;
+      }
+      foundProxyStartSending = isStartSending;
     }
 
     // Assert that all old receivers who have been getting funds have stop sending events
     const sender = receipt.from;
     const blockTime = (await this.pool.provider.getBlock(receipt.blockHash)).timestamp;
-    for (const [receiver, { receiverWeight }] of oldActiveReceivers) {
+    for (const [receiver, { receiverWeight, proxyWeight }] of oldActiveReceivers) {
       if (receiverWeight != 0) {
         const errorPrefix = "Stop sending event for receiver " + receiver + " ";
-        const idx = events.findIndex((event) => event.args.receiver == receiver);
+        const idx = receiverEvents.findIndex((event) => event.args.receiver == receiver);
         expect(idx).to.be.not.equal(-1, errorPrefix + "not found");
-        const [event] = events.splice(idx, 1);
+        const [event] = receiverEvents.splice(idx, 1);
+        expect(event.args.sender).to.equal(sender, errorPrefix + "has invalid sender");
+        expectBigNumberEq(event.args.amtPerSec, 0, errorPrefix + "has invalid amtPerSec");
+        expectBigNumberEq(event.args.endTime, blockTime, errorPrefix + "has invalid end time");
+      }
+      if (proxyWeight != 0) {
+        const errorPrefix = "Stop sending event for proxy " + receiver + " ";
+        const idx = proxyEvents.findIndex((event) => event.args.proxy == receiver);
+        expect(idx).to.be.not.equal(-1, errorPrefix + "not found");
+        const [event] = proxyEvents.splice(idx, 1);
         expect(event.args.sender).to.equal(sender, errorPrefix + "has invalid sender");
         expectBigNumberEq(event.args.amtPerSec, 0, errorPrefix + "has invalid amtPerSec");
         expectBigNumberEq(event.args.endTime, blockTime, errorPrefix + "has invalid end time");
@@ -437,20 +462,31 @@ abstract class PoolUser<Pool extends AnyPool> {
       : BigNumber.from(0);
     let endTime = timeLeft.add(blockTime);
     endTime = endTime.gt(this.maxTimestamp) ? this.maxTimestamp : endTime;
-    for (const [receiver, { receiverWeight }] of activeReceivers) {
+    for (const [receiver, { receiverWeight, proxyWeight }] of activeReceivers) {
       if (receiverWeight != 0) {
         const errorPrefix = "Start sending event for receiver " + receiver + " ";
-        const idx = events.findIndex((event) => event.args.receiver == receiver);
+        const idx = receiverEvents.findIndex((event) => event.args.receiver == receiver);
         expect(idx).to.be.not.equal(-1, errorPrefix + "not found");
-        const [event] = events.splice(idx, 1);
+        const [event] = receiverEvents.splice(idx, 1);
         expect(event.args.sender).to.equal(sender, errorPrefix + "has invalid sender");
         const amtPerSec = amtPerSecPerWeight * receiverWeight;
         expectBigNumberEq(event.args.amtPerSec, amtPerSec, errorPrefix + "has invalid amtPerSec");
         expectBigNumberEq(event.args.endTime, endTime, errorPrefix + "has invalid end time");
       }
+      if (proxyWeight != 0) {
+        const errorPrefix = "Start sending event for proxy " + receiver + " ";
+        const idx = proxyEvents.findIndex((event) => event.args.proxy == receiver);
+        expect(idx).to.be.not.equal(-1, errorPrefix + "not found");
+        const [event] = proxyEvents.splice(idx, 1);
+        expect(event.args.sender).to.equal(sender, errorPrefix + "has invalid sender");
+        const amtPerSec = amtPerSecPerWeight * proxyWeight;
+        expectBigNumberEq(event.args.amtPerSec, amtPerSec, errorPrefix + "has invalid amtPerSec");
+        expectBigNumberEq(event.args.endTime, endTime, errorPrefix + "has invalid end time");
+      }
     }
 
-    expect(events, "Excess sender update events").to.be.empty;
+    expect(receiverEvents, "Excess sending to a receiver update events").to.be.empty;
+    expect(proxyEvents, "Excess sending to a proxy update events").to.be.empty;
   }
 }
 
