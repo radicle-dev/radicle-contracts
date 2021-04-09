@@ -305,8 +305,21 @@ abstract class PoolUser<Pool extends AnyPool> {
         expectedWeights.set(receiver, weight);
       }
     }
-    await submit(this.pool.setProxyWeights(weightsAddr), "setProxyWeights");
+    const receipt = await submit(this.pool.setProxyWeights(weightsAddr), "setProxyWeights");
     await this.expectProxyWeights(expectedWeights);
+
+    // Assert that proper events have been emitted
+    const filter = this.pool.filters.ProxyToReceiverUpdated(null, null, null);
+    const events = await this.pool.queryFilter(filter, receipt.blockHash);
+    for (const { receiver, weight } of weightsAddr) {
+      const errorPrefix = "Proxy update event for receiver " + receiver + " ";
+      const idx = events.findIndex((event) => event.args.receiver == receiver);
+      expect(idx).to.be.not.equal(-1, errorPrefix + "not found");
+      const [event] = events.splice(idx, 1);
+      expect(event.args.proxy).to.equal(this.addr, errorPrefix + "has invalid proxy");
+      expect(event.args.weight).to.equal(weight, errorPrefix + "has invalid receiver");
+    }
+    expect(events, "Excess proxy update events").to.be.empty;
   }
 
   async expectSetProxyWeightsReverts(
