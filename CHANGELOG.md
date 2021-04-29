@@ -11,6 +11,7 @@ with regard to its JavaScript and TypeScript bindings' APIs and the Ethereum ABI
 - Burning capability to Radicle Token
 - Radicle Link ID claims contract
 - Pool events when a direct stream from a sender to a receiver is updated
+- Pool events when a sender is updated
 
 ### Changed
 - Replaced vesting contract with one adapted from Melonport

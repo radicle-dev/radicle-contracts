@@ -171,7 +171,8 @@ abstract class PoolUser<Pool extends AnyPool> {
     await this.expectWithdrawable(balanceTo);
     await this.expectAmtPerSec(expectedAmtPerSec);
     await this.expectReceivers(expectedReceivers);
-    await this.expectUpdateSenderEvents(oldActiveReceivers, receipt);
+    await this.expectUpdateSenderStreamsEvents(oldActiveReceivers, receipt);
+    await this.expectUpdateSenderEvent(receipt, balanceTo, expectedAmtPerSec);
   }
 
   async updateSenderBalanceUnchanged(
@@ -402,10 +403,10 @@ abstract class PoolUser<Pool extends AnyPool> {
     expect(weightsActual).to.deep.equal(weights, "Unexpected proxy weights list");
   }
 
-  // Check if the sender update generated proper events.
+  // Check if the sender update generated proper stream update events.
   // `oldActiveReceivers` - the receivers of `this` sender, which were
   // receiving anything at the time of the update
-  async expectUpdateSenderEvents(
+  async expectUpdateSenderStreamsEvents(
     oldActiveReceivers: ProxyReceiverWeights,
     receipt: ContractReceipt
   ): Promise<void> {
@@ -500,6 +501,21 @@ abstract class PoolUser<Pool extends AnyPool> {
 
     expect(receiverEvents, "Excess sending to a receiver update events").to.be.empty;
     expect(proxyEvents, "Excess sending to a proxy update events").to.be.empty;
+  }
+
+  // Check if the sender update generated proper events.
+  async expectUpdateSenderEvent(
+    receipt: ContractReceipt,
+    expectedBalance: BigNumberish,
+    expectedAmtPerSec: BigNumberish
+  ): Promise<void> {
+    const filter = this.pool.filters.SenderUpdated(null, null, null);
+    const events = await this.pool.queryFilter(filter, receipt.blockHash);
+    expect(events.length).to.be.equal(1, "Expected a single UpdateSender event");
+    const { sender, balance, amtPerSec } = events[0].args;
+    expect(sender).to.equal(receipt.from, "UpdateSender event has an invalid sender");
+    expectBigNumberEq(balance, expectedBalance, "UpdateSender event has an invalid balance");
+    expectBigNumberEq(amtPerSec, expectedAmtPerSec, "UpdateSender event has an invalid amtPerSec");
   }
 }
 
@@ -1241,14 +1257,20 @@ describe("EthPool", function () {
 
   it("Allows withdrawal of all funds", async function () {
     const [sender, receiver] = await getEthPoolUsers();
-    await sender.updateSender(0, 10, 1, [[receiver, 1]], []);
+    const amtPerSec = 1;
+    await sender.updateSender(0, 10, amtPerSec, [[receiver, 1]], []);
+    const receivers = await sender.getAllReceivers();
     await elapseTime(3);
-    await sender.submitChangingBalance(
+    const receipt = await sender.submitChangingBalance(
       () => sender.submitUpdateSender(0, sender.withdrawAll, sender.amtPerSecUnchanged, [], []),
       "updateSender",
       6
     );
     await sender.expectWithdrawable(0);
+    await sender.expectAmtPerSec(amtPerSec);
+    await sender.expectReceivers(receivers);
+    await sender.expectUpdateSenderStreamsEvents(receivers, receipt);
+    await sender.expectUpdateSenderEvent(receipt, 0, amtPerSec);
     await elapseTimeUntilCycleEnd();
     // Receiver had 4 seconds paying 1 per second
     await receiver.collect(4);
@@ -1308,12 +1330,16 @@ function runCommonPoolTests(getPoolUsers: () => Promise<PoolUser<AnyPool>[]>): v
 
   it("Allows sender update with top up and withdrawal", async function () {
     const [sender] = await getPoolUsers();
-    await sender.submitChangingBalance(
+    const receipt = await sender.submitChangingBalance(
       () => sender.submitUpdateSender(10, 3, sender.amtPerSecUnchanged, [], []),
       "updateSender",
       -7
     );
     await sender.expectWithdrawable(7);
+    await sender.expectAmtPerSec(0);
+    await sender.expectReceivers(new Map());
+    await sender.expectUpdateSenderStreamsEvents(new Map(), receipt);
+    await sender.expectUpdateSenderEvent(receipt, 7, 0);
   });
 
   it("Allows no sender update", async function () {
