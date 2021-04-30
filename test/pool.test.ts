@@ -137,12 +137,13 @@ abstract class PoolUser<Pool extends AnyPool> {
 
   async collect(expectedAmount: number): Promise<void> {
     await this.expectCollectableOnNextBlock(expectedAmount);
-    await this.submitChangingBalance(
+    const receipt = await this.submitChangingBalance(
       () => this.pool.collect({ gasPrice: 0 }),
       "collect",
       expectedAmount
     );
     await this.expectCollectable(0);
+    await this.expectCollectedEvent(receipt, expectedAmount);
   }
 
   async updateSender(
@@ -516,6 +517,16 @@ abstract class PoolUser<Pool extends AnyPool> {
     expect(sender).to.equal(receipt.from, "UpdateSender event has an invalid sender");
     expectBigNumberEq(balance, expectedBalance, "UpdateSender event has an invalid balance");
     expectBigNumberEq(amtPerSec, expectedAmtPerSec, "UpdateSender event has an invalid amtPerSec");
+  }
+
+  // Check if funds collection generated proper events.
+  async expectCollectedEvent(receipt: ContractReceipt, expectedAmt: BigNumberish): Promise<void> {
+    const filter = this.pool.filters.Collected(null, null);
+    const events = await this.pool.queryFilter(filter, receipt.blockHash);
+    expect(events.length).to.be.equal(1, "Expected a single Collected event");
+    const { receiver, amt } = events[0].args;
+    expect(receiver).to.equal(receipt.from, "Collected event has an invalid receiver");
+    expectBigNumberEq(amt, expectedAmt, "Collected event has an invalid amt");
   }
 }
 
