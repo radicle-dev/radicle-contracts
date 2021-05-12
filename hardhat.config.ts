@@ -4,8 +4,7 @@ import {
   TASK_COMPILE,
   TASK_COMPILE_SOLIDITY_GET_COMPILER_INPUT,
 } from "hardhat/builtin-tasks/task-names";
-import { tsGenerator } from "ts-generator";
-import { TypeChain } from "typechain/dist/TypeChain";
+import { runTypeChain, glob } from "typechain";
 import "@nomiclabs/hardhat-ethers";
 
 // You have to export an object to set up your config
@@ -54,25 +53,22 @@ task(TASK_COMPILE_SOLIDITY_GET_COMPILER_INPUT).setAction(async (_, __, runSuper)
   return input;
 });
 
-async function typeChain(files: string, modulePath: string): Promise<void> {
+async function typeChain(filesGlob: string, modulePath: string): Promise<void> {
   const outDir = "./contract-bindings";
   const cwd = process.cwd();
-  await tsGenerator({ cwd }, [
-    new TypeChain({
-      cwd,
-      rawConfig: {
-        files,
-        outDir: path.join(outDir, "ethers", modulePath),
-        target: "ethers-v5",
-      },
-    }),
-    new TypeChain({
-      cwd,
-      rawConfig: {
-        files,
-        outDir: path.join(outDir, "web3", modulePath),
-        target: "web3-v1",
-      },
-    }),
-  ]);
+  const allFiles = glob(cwd, [filesGlob]);
+  await runTypeChain({
+    cwd,
+    filesToProcess: allFiles,
+    allFiles,
+    outDir: path.join(outDir, "ethers", modulePath),
+    target: "ethers-v5",
+  });
+  await runTypeChain({
+    cwd,
+    filesToProcess: allFiles,
+    allFiles,
+    outDir: path.join(outDir, "web3", modulePath),
+    target: "web3-v1",
+  });
 }

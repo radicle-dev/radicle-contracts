@@ -5,7 +5,7 @@ import {
   utils,
   BigNumber,
   BigNumberish,
-  Contract,
+  BaseContract,
   ContractReceipt,
   Signer,
 } from "ethers";
@@ -293,7 +293,7 @@ export async function deployClaims(signer: Signer): Promise<Claims> {
   return deployOk(new Claims__factory(signer).deploy());
 }
 
-async function deployOk<T extends Contract>(contractPromise: Promise<T>): Promise<T> {
+async function deployOk<T extends BaseContract>(contractPromise: Promise<T>): Promise<T> {
   const contract = await contractPromise;
   await contract.deployed();
   return contract;
