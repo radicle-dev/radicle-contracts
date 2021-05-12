@@ -240,16 +240,16 @@ export async function deployExchange(radToken: RadicleToken, signer: Signer): Pr
   return exchange;
 }
 
-export async function deployEthPool(signer: Signer, cycleBlocks: number): Promise<EthPool> {
-  return deployOk(new EthPool__factory(signer).deploy(cycleBlocks));
+export async function deployEthPool(signer: Signer, cycleSecs: number): Promise<EthPool> {
+  return deployOk(new EthPool__factory(signer).deploy(cycleSecs));
 }
 
 export async function deployErc20Pool(
   signer: Signer,
-  cycleBlocks: number,
+  cycleSecs: number,
   erc20TokenAddress: string
 ): Promise<Erc20Pool> {
-  return deployOk(new Erc20Pool__factory(signer).deploy(cycleBlocks, erc20TokenAddress));
+  return deployOk(new Erc20Pool__factory(signer).deploy(cycleSecs, erc20TokenAddress));
 }
 
 // The signer becomes an owner of the '', 'eth' and '<label>.eth' domains,
