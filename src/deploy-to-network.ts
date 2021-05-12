@@ -1,4 +1,10 @@
-import { deployErc20Pool, deployTestEns, deployVestingToken, deployPhase0 } from "./deploy";
+import {
+  deployClaims,
+  deployErc20Pool,
+  deployTestEns,
+  deployVestingToken,
+  deployPhase0,
+} from "./deploy";
 import { BigNumber, Contract, Wallet, Signer, providers, utils } from "ethers";
 import SigningKey = utils.SigningKey;
 import { keyInSelect, keyInYNStrict, question } from "readline-sync";
@@ -77,6 +83,11 @@ export async function erc20FundingPool(): Promise<void> {
   const tokenAddr = askForAddress("of the ERC-20 token to used in the funding pool");
   const cycleSecs = askForNumber("the length of the funding cycle in seconds");
   await deploy("funding pool", () => deployErc20Pool(signer, cycleSecs, tokenAddr));
+}
+
+export async function claims(): Promise<void> {
+  const signer = await connectPrivateKeySigner();
+  await deploy("claims", () => deployClaims(signer));
 }
 
 async function connectPrivateKeySigner(): Promise<Signer> {
