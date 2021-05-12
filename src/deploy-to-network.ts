@@ -1,4 +1,4 @@
-import { deployTestEns, deployVestingToken, deployPhase0 } from "./deploy";
+import { deployErc20Pool, deployTestEns, deployVestingToken, deployPhase0 } from "./deploy";
 import { BigNumber, Contract, Wallet, Signer, providers, utils } from "ethers";
 import SigningKey = utils.SigningKey;
 import { keyInSelect, keyInYNStrict, question } from "readline-sync";
@@ -72,6 +72,13 @@ export async function vestingTokens(): Promise<void> {
   } while (askYesNo("Create another vesting?"));
 }
 
+export async function erc20FundingPool(): Promise<void> {
+  const signer = await connectPrivateKeySigner();
+  const tokenAddr = askForAddress("of the ERC-20 token to used in the funding pool");
+  const cycleSecs = askForNumber("the length of the funding cycle in seconds");
+  await deploy("funding pool", () => deployErc20Pool(signer, cycleSecs, tokenAddr));
+}
+
 async function connectPrivateKeySigner(): Promise<Signer> {
   const signingKey = askForSigningKey("to sign all the transactions");
   const network = askForNetwork("to connect to");
@@ -98,7 +105,10 @@ async function connectPrivateKeySigner(): Promise<Signer> {
 
 function askForSigningKey(keyUsage: string): SigningKey {
   for (;;) {
-    const key = askFor("the private key " + keyUsage, undefined, true);
+    let key = askFor("the private key " + keyUsage, undefined, true);
+    if (!key.startsWith("0x")) {
+      key = "0x" + key;
+    }
     try {
       return new SigningKey(key);
     } catch (e) {
@@ -155,6 +165,17 @@ function askForBigNumber(numberUsage: string): BigNumber {
   }
 }
 
+function askForNumber(numberUsage: string): number {
+  for (;;) {
+    const numStr = askFor(numberUsage);
+    const num = parseInt(numStr);
+    if (Number.isInteger(num)) {
+      return num;
+    }
+    printInvalidInput("number");
+  }
+}
+
 function askForTimestamp(dateUsage: string): number {
   for (;;) {
     const dateStr = askFor(
@@ -172,14 +193,8 @@ function askForTimestamp(dateUsage: string): number {
 }
 
 function askForDaysInSeconds(daysUsage: string): number {
-  for (;;) {
-    const daysStr = askFor(daysUsage + " in whole days");
-    const days = parseInt(daysStr);
-    if (Number.isInteger(days)) {
-      return days * 24 * 60 * 60;
-    }
-    printInvalidInput("number");
-  }
+  const days = askForNumber(daysUsage + " in whole days");
+  return days * 24 * 60 * 60;
 }
 
 function askYesNo(query: string): boolean {

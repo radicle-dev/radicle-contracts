@@ -34,6 +34,7 @@
   },
   "scripts": {
     "build": "hardhat compile && tsc",
+    "deploy:erc20FundingPool": "ts-node -e 'require(\"./src/deploy-to-network.ts\").erc20FundingPool();'",
     "deploy:testEns": "ts-node -e 'require(\"./src/deploy-to-network.ts\").testEns();'",
     "deploy:phase0": "ts-node -e 'require(\"./src/deploy-to-network.ts\").phase0();'",
     "deploy:vestingTokens": "ts-node -e 'require(\"./src/deploy-to-network.ts\").vestingTokens();'",
