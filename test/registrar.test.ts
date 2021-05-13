@@ -1,7 +1,6 @@
 import { ethers } from "hardhat";
 import { assert } from "chai";
 import { utils } from "ethers";
-import { concat } from "@ethersproject/bytes";
 import { submit, elapseTime, mineBlocks } from "./support";
 import { deployAll } from "../src/deploy";
 
@@ -28,9 +27,9 @@ describe("Registrar", function () {
     assert(await registrar.available("treehead"));
 
     // Commit to `cloudhead.radicle.eth`.
-    const label = "cloudhead";
+    const label = utils.toUtf8Bytes("cloudhead");
     const secret = ethers.utils.randomBytes(32);
-    const commitment = utils.keccak256(concat([utils.toUtf8Bytes(label), registrantAddr, secret]));
+    const commitment = utils.keccak256(utils.concat([label, registrantAddr, secret]));
     await submit(registrar.connect(registrant).commit(commitment));
     await mineBlocks(50);
     await submit(registrar.connect(registrant).register("cloudhead", registrantAddr, secret));
