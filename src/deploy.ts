@@ -10,6 +10,8 @@ import {
   Signer,
 } from "ethers";
 import { Claims } from "../contract-bindings/ethers/Claims";
+import { Dai } from "../contract-bindings/ethers/Dai";
+import { DaiPool } from "../contract-bindings/ethers/DaiPool";
 import { ENS } from "../contract-bindings/ethers/ENS";
 import { EthPool } from "../contract-bindings/ethers/EthPool";
 import { Exchange } from "../contract-bindings/ethers/Exchange";
@@ -22,6 +24,8 @@ import { VestingToken } from "../contract-bindings/ethers/VestingToken";
 import {
   BaseRegistrarImplementation__factory,
   Claims__factory,
+  Dai__factory,
+  DaiPool__factory,
   ENSRegistry__factory,
   Erc20Pool__factory,
   Erc20Pool,
@@ -57,17 +61,20 @@ export async function nextDeployedContractAddr(
 export interface DeployedContracts {
   gov: Governor;
   rad: RadicleToken;
+  dai: Dai;
   registrar: Registrar;
   exchange: Exchange;
   ens: ENS;
   ethPool: EthPool;
   erc20Pool: Erc20Pool;
+  daiPool: DaiPool;
   claims: Claims;
 }
 
 export async function deployAll(signer: Signer): Promise<DeployedContracts> {
   const signerAddr = await signer.getAddress();
   const rad = await deployRadicleToken(signer, signerAddr);
+  const dai = await deployTestDai(signer);
   const timelock = await deployTimelock(signer, signerAddr, 2 * 60 * 60 * 24);
   const gov = await deployGovernance(signer, timelock.address, rad.address, signerAddr);
   const exchange = await deployExchange(rad, signer);
@@ -85,9 +92,10 @@ export async function deployAll(signer: Signer): Promise<DeployedContracts> {
   await transferEthDomain(ens, label, registrar.address);
   const ethPool = await deployEthPool(signer, 10);
   const erc20Pool = await deployErc20Pool(signer, 10, rad.address);
+  const daiPool = await deployDaiPool(signer, 10, dai.address);
   const claims = await deployClaims(signer);
 
-  return { gov, rad, exchange, registrar, ens, ethPool, erc20Pool, claims };
+  return { gov, rad, dai, exchange, registrar, ens, ethPool, erc20Pool, daiPool, claims };
 }
 
 export async function deployRadicleToken(signer: Signer, account: string): Promise<RadicleToken> {
@@ -252,6 +260,14 @@ export async function deployErc20Pool(
   return deployOk(new Erc20Pool__factory(signer).deploy(cycleSecs, erc20TokenAddress));
 }
 
+export async function deployDaiPool(
+  signer: Signer,
+  cycleSecs: number,
+  daiAddress: string
+): Promise<DaiPool> {
+  return deployOk(new DaiPool__factory(signer).deploy(cycleSecs, daiAddress));
+}
+
 // The signer becomes an owner of the '', 'eth' and '<label>.eth' domains,
 // the owner of the root ENS and the owner and controller of the 'eth' registrar
 export async function deployTestEns(signer: Signer, label: string): Promise<ENS> {
@@ -291,6 +307,10 @@ export async function deployPhase0(
 
 export async function deployClaims(signer: Signer): Promise<Claims> {
   return deployOk(new Claims__factory(signer).deploy());
+}
+
+export async function deployTestDai(signer: Signer): Promise<Dai> {
+  return deployOk(new Dai__factory(signer).deploy());
 }
 
 async function deployOk<T extends BaseContract>(contractPromise: Promise<T>): Promise<T> {

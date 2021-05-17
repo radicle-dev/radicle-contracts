@@ -1,23 +1,30 @@
-import {
-  Erc20Pool__factory,
-  EthPool__factory,
-  RadicleToken__factory,
-} from "../contract-bindings/ethers";
+import { Dai } from "../contract-bindings/ethers/Dai";
 import { IERC20 } from "../contract-bindings/ethers/IERC20";
+import { DaiPool } from "../contract-bindings/ethers/DaiPool";
 import { Erc20Pool } from "../contract-bindings/ethers/Erc20Pool";
 import { EthPool } from "../contract-bindings/ethers/EthPool";
 import { ethers } from "hardhat";
-import { Signer, BigNumber, BigNumberish, ContractReceipt, ContractTransaction } from "ethers";
+import {
+  utils,
+  Signer,
+  BigNumber,
+  BigNumberish,
+  ContractReceipt,
+  ContractTransaction,
+} from "ethers";
 import { expect } from "chai";
 import {
   callOnNextBlock,
   elapseTime,
   elapseTimeUntil,
   expectBigNumberEq,
+  getSigningKey,
   randomAddress,
   submit,
   submitFailing,
 } from "./support";
+import { deployDaiPool, deployErc20Pool, deployEthPool, deployTestDai } from "../src/deploy";
+import { daiPermitDigest } from "../src/utils";
 
 const CYCLE_SECS = 10;
 
@@ -29,7 +36,7 @@ async function elapseTimeUntilCycleEnd(): Promise<void> {
   await elapseTimeUntil(Math.ceil((latestBlock.timestamp + 2) / CYCLE_SECS) * CYCLE_SECS - 1);
 }
 
-type AnyPool = EthPool | Erc20Pool;
+type AnyPool = EthPool | Erc20Pool | DaiPool;
 
 type ReceiverWeights = [PoolUser<AnyPool>, number][];
 type ReceiverWeightsAddr = Array<{
@@ -532,8 +539,7 @@ abstract class PoolUser<Pool extends AnyPool> {
 
 async function getEthPoolUsers(): Promise<EthPoolUser[]> {
   const signers = await ethers.getSigners();
-  const pool = await new EthPool__factory(signers[0]).deploy(CYCLE_SECS);
-  await pool.deployed();
+  const pool = await deployEthPool(signers[0], CYCLE_SECS);
   const constants = await poolConstants(pool);
   const poolSigners = signers.map(
     async (signer: Signer) => await EthPoolUser.new(pool, signer, constants)
@@ -572,14 +578,8 @@ class EthPoolUser extends PoolUser<EthPool> {
 
 async function getErc20PoolUsers(): Promise<Erc20PoolUser[]> {
   const signers = await ethers.getSigners();
-  const signer0 = signers[0];
-  const signer0Addr = await signer0.getAddress();
-
-  const erc20 = await new RadicleToken__factory(signer0).deploy(signer0Addr);
-  await erc20.deployed();
-
-  const pool = await new Erc20Pool__factory(signer0).deploy(CYCLE_SECS, erc20.address);
-  await pool.deployed();
+  const erc20 = await deployTestDai(signers[0]);
+  const pool = await deployErc20Pool(signers[0], CYCLE_SECS, erc20.address);
   const constants = await poolConstants(pool);
 
   const supplyPerUser = (await erc20.totalSupply()).div(signers.length);
@@ -626,6 +626,79 @@ class Erc20PoolUser extends PoolUser<Erc20Pool> {
     setProxies: ReceiverWeightsAddr
   ): Promise<ContractTransaction> {
     return this.pool.updateSender(topUp, withdraw, amtPerSec, setReceivers, setProxies);
+  }
+}
+
+async function getDaiPoolUsers(): Promise<DaiPoolUser[]> {
+  const signers = await ethers.getSigners();
+  const dai = await deployTestDai(signers[0]);
+  const pool = await deployDaiPool(signers[0], CYCLE_SECS, dai.address);
+  const constants = await poolConstants(pool);
+
+  const supplyPerUser = (await dai.totalSupply()).div(signers.length);
+  const users = [];
+  for (const signer of signers) {
+    const user = await DaiPoolUser.new(pool, dai, signer, constants);
+    await dai.transfer(user.addr, supplyPerUser);
+    users.push(user);
+  }
+  return users;
+}
+
+class DaiPoolUser extends Erc20PoolUser {
+  dai: Dai;
+  daiPool: DaiPool;
+
+  constructor(daiPool: DaiPool, userAddr: string, constants: PoolConstants, dai: Dai) {
+    super(daiPool, userAddr, constants, dai);
+    this.dai = dai;
+    this.daiPool = daiPool;
+  }
+
+  static async new(
+    pool: DaiPool,
+    dai: Dai,
+    signer: Signer,
+    constants: PoolConstants
+  ): Promise<DaiPoolUser> {
+    const userPool = pool.connect(signer);
+    const userAddr = await signer.getAddress();
+    const userDai = dai.connect(signer);
+    return new DaiPoolUser(userPool, userAddr, constants, userDai);
+  }
+
+  async submitUpdateSender(
+    topUp: BigNumberish,
+    withdraw: BigNumberish,
+    amtPerSec: BigNumberish,
+    setReceivers: ReceiverWeightsAddr,
+    setProxies: ReceiverWeightsAddr
+  ): Promise<ContractTransaction> {
+    const nonce = await this.dai.nonces(this.addr);
+    const expiry = 0; // never expires
+    const digest = daiPermitDigest(
+      this.dai.address,
+      await this.pool.signer.getChainId(),
+      this.addr, // holder
+      this.pool.address, // spender
+      nonce,
+      expiry,
+      true // allowed
+    );
+    const signature = getSigningKey(this.addr).signDigest(digest);
+    const { r, s, v } = utils.splitSignature(signature);
+    return this.daiPool.updateSenderAndPermit(
+      topUp,
+      withdraw,
+      amtPerSec,
+      setReceivers,
+      setProxies,
+      nonce,
+      expiry,
+      v,
+      r,
+      s
+    );
   }
 }
 
@@ -1302,6 +1375,13 @@ describe("Erc20Pool", function () {
     await sender.updateSender(0, 10, 10, [[receiver, 1]], []);
     await elapseTimeUntilCycleEnd();
     await receiver.collect(10);
+  });
+});
+
+describe("DaiPool", function () {
+  it("Allows sender update", async function () {
+    const [sender, receiver] = await getDaiPoolUsers();
+    await sender.updateSender(0, 10, 10, [[receiver, 1]], []);
   });
 });
 
