@@ -1,6 +1,8 @@
 import {
   deployClaims,
+  deployDaiPool,
   deployErc20Pool,
+  deployEthPool,
   deployTestEns,
   deployVestingToken,
   deployPhase0,
@@ -78,11 +80,24 @@ export async function vestingTokens(): Promise<void> {
   } while (askYesNo("Create another vesting?"));
 }
 
+export async function ethFundingPool(): Promise<void> {
+  const signer = await connectPrivateKeySigner();
+  const cycleSecs = askForNumber("the length of the funding cycle in seconds");
+  await deploy("funding pool", () => deployEthPool(signer, cycleSecs));
+}
+
 export async function erc20FundingPool(): Promise<void> {
   const signer = await connectPrivateKeySigner();
   const tokenAddr = askForAddress("of the ERC-20 token to used in the funding pool");
   const cycleSecs = askForNumber("the length of the funding cycle in seconds");
   await deploy("funding pool", () => deployErc20Pool(signer, cycleSecs, tokenAddr));
+}
+
+export async function daiFundingPool(): Promise<void> {
+  const signer = await connectPrivateKeySigner();
+  const tokenAddr = askForAddress("of the DAI token to used in the funding pool");
+  const cycleSecs = askForNumber("the length of the funding cycle in seconds");
+  await deploy("funding pool", () => deployDaiPool(signer, cycleSecs, tokenAddr));
 }
 
 export async function claims(): Promise<void> {
