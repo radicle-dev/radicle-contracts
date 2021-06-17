@@ -108,7 +108,12 @@ export async function claims(): Promise<void> {
 async function connectPrivateKeySigner(): Promise<Signer> {
   const signingKey = askForSigningKey("to sign all the transactions");
   const network = askForNetwork("to connect to");
-  const provider = new providers.InfuraProvider(network, INFURA_ID);
+  let provider: providers.Provider;
+  if (network === "mumbai") {
+    provider = new providers.JsonRpcProvider("https://matic-mumbai.chainstacklabs.com");
+  } else {
+    provider = new providers.InfuraProvider(network, INFURA_ID);
+  }
   const wallet = new Wallet(signingKey, provider);
   const networkName = (await wallet.provider.getNetwork()).name;
   console.log("Connected to", networkName, "using account", wallet.address);
@@ -144,7 +149,7 @@ function askForSigningKey(keyUsage: string): SigningKey {
 }
 
 function askForNetwork(networkUsage: string): string {
-  const networks = ["mainnet", "ropsten", "rinkeby"];
+  const networks = ["mainnet", "ropsten", "rinkeby", "mumbai"];
   const query = "Enter the network " + networkUsage;
   const network = keyInSelect(networks, query, { cancel: false });
   return networks[network];
