@@ -4,3 +4,5 @@
 /contract-bindings
 /yarn-error.log
 /node_modules
+artifacts-ovm/
+cache-ovm/

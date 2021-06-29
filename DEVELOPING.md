@@ -86,4 +86,34 @@ e.g. `v0.0.1`, `v1.0.0`, `v1.2.3` or `v1.0.0-alpha`.
   the build agent will find the image under the configured tag.
   It will reuse it instead of rebuilding, which saves a lot of time.
 
+# Running tests
 
+## Prerequisites
+
+You need to have docker and docker-compose installed.
+Next, you need to build the Optimism client:
+
+```
+cd <YOUR_WORKSPACE>
+git clone https://github.com/ethereum-optimism/optimism.git
+cd optimism
+yarn install
+yarn build
+cd ops
+docker-compose build
+```
+
+## Running tests
+
+When you want to run tests you need to make sure that this command is running in the background:
+
+```
+cd <YOUR_WORKSPACE>/optimism/ops
+docker-compose up
+```
+
+To run tests call:
+
+```
+yarn test
+```

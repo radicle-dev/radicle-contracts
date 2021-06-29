@@ -42,11 +42,16 @@ export async function expectTxFail<T>(
   try {
     await tx;
   } catch (error) {
+    // console.log("GOT ERROR", JSON.stringify(error));
     if (expectedCause) {
+      // This property needs to be accessed before checking error type to avoid the type checker
+      const details = error.error;
       if (!(error instanceof Error)) {
         throw error;
       }
-      const cause = error.message.replace("VM Exception while processing transaction: revert ", "");
+      // The body property may be in one of 2 places
+      const body = details.body ? details.body : details.error.body;
+      const cause = JSON.parse(body).error.message.replace("execution reverted: ", "");
       expect(cause).to.equal(expectedCause, txName + " failed because of an unexpected reason");
     }
     return;
@@ -64,24 +69,6 @@ export async function elapseTime(elapsed: number): Promise<void> {
 export async function elapseTimeUntil(timestamp: number): Promise<void> {
   await ethers.provider.send("evm_setNextBlockTimestamp", [timestamp]);
   await mineBlocks(1);
-}
-
-// Call a function `fn` on the next block to be mined without actually mining it.
-//
-// This is needed because of the way the test EVM is working.
-// When a non-`view` contract function is called, a new block is created, then the
-// function is called and then the block is mined.
-// On the other hand `view` functions are called on the last block, without mining.
-// It means that `view` functions are called on block `N`, but non-view on `N+1`.
-// It may be problematic in some tests, because they will see slightly different blockchain states.
-// This function allows a `view` function to see exactly the same state as the next non-`view` one.
-export async function callOnNextBlock<T>(fn: () => Promise<T>): Promise<T> {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-  const snapshot = await ethers.provider.send("evm_snapshot", []);
-  await mineBlocks(1);
-  const returned = await fn();
-  await ethers.provider.send("evm_revert", [snapshot]);
-  return returned;
 }
 
 export async function mineBlocks(count: number): Promise<void> {

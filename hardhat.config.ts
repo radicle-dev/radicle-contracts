@@ -6,6 +6,7 @@ import {
 } from "hardhat/builtin-tasks/task-names";
 import { runTypeChain, glob } from "typechain";
 import "@nomiclabs/hardhat-ethers";
+import "@eth-optimism/hardhat-ovm";
 
 // You have to export an object to set up your config
 // This object can have the following optional entries:
@@ -20,6 +21,21 @@ export default {
         enabled: true,
         runs: 200,
       },
+    },
+  },
+  defaultNetwork: "optimism",
+  networks: {
+    optimism: {
+      url: "http://127.0.0.1:8545",
+      chainId: 420,
+      accounts: {
+        mnemonic: "test test test test test test test test test test test junk",
+      },
+      // This sets the gas price to 0 for all transactions on L2.
+      // We do this because account balances are not automatically initiated with ETH.
+      gasPrice: 0,
+      // This sets the network as using the ovm and ensure contract will be compiled against that.
+      ovm: true,
     },
   },
 };

@@ -14,12 +14,8 @@ import {
 } from "ethers";
 import { expect } from "chai";
 import {
-  callOnNextBlock,
-  elapseTime,
-  elapseTimeUntil,
   expectBigNumberEq,
   getSigningKey,
-  randomAddress,
   submit,
   submitFailing,
 } from "./support";
@@ -27,14 +23,6 @@ import { deployDaiPool, deployErc20Pool, deployEthPool, deployTestDai } from "..
 import { daiPermitDigest } from "../src/utils";
 
 const CYCLE_SECS = 10;
-
-// Elapses time until the next cycle is reached, at least 1 second.
-// The next transaction will be executed on the first second of the next cycle,
-// but the next call will be executed on the last second of the current cycle.
-async function elapseTimeUntilCycleEnd(): Promise<void> {
-  const latestBlock = await ethers.provider.getBlock("latest");
-  await elapseTimeUntil(Math.ceil((latestBlock.timestamp + 2) / CYCLE_SECS) * CYCLE_SECS - 1);
-}
 
 type AnyPool = EthPool | Erc20Pool | DaiPool;
 
@@ -143,7 +131,6 @@ abstract class PoolUser<Pool extends AnyPool> {
   ): Promise<ContractTransaction>;
 
   async collect(expectedAmount: number): Promise<void> {
-    await this.expectCollectableOnNextBlock(expectedAmount);
     const receipt = await this.submitChangingBalance(
       () => this.pool.collect({ gasPrice: 0 }),
       "collect",
@@ -164,22 +151,17 @@ abstract class PoolUser<Pool extends AnyPool> {
     const topUp = balanceDelta.lt(0) ? balanceDelta.abs() : 0;
     const withdraw = balanceDelta.gt(0) ? balanceDelta : 0;
     const expectedAmtPerSec = await this.expectedAmtPerSec(amtPerSec);
-    const receiversAddr = receiverWeightsAddr(setReceivers);
-    const proxiesAddr = receiverWeightsAddr(setProxies);
-    const expectedReceivers = await this.expectedReceivers(receiversAddr, proxiesAddr);
-    const oldActiveReceivers = await this.getActiveReceivers();
-    await this.expectWithdrawableOnNextBlock(balanceFrom);
 
-    const receipt = await this.submitChangingBalance(
-      () => this.submitUpdateSender(topUp, withdraw, amtPerSec, receiversAddr, proxiesAddr),
-      "updateSender",
-      balanceDelta
+    const receipt = await this.updateSenderRawBalance(
+      topUp,
+      withdraw,
+      balanceDelta,
+      amtPerSec,
+      setReceivers,
+      setProxies
     );
 
     await this.expectWithdrawable(balanceTo);
-    await this.expectAmtPerSec(expectedAmtPerSec);
-    await this.expectReceivers(expectedReceivers);
-    await this.expectUpdateSenderStreamsEvents(oldActiveReceivers, receipt);
     await this.expectUpdateSenderEvent(receipt, balanceTo, expectedAmtPerSec);
   }
 
@@ -188,8 +170,33 @@ abstract class PoolUser<Pool extends AnyPool> {
     setReceivers: ReceiverWeights,
     setProxies: ReceiverWeights
   ): Promise<void> {
-    const balance = await callOnNextBlock(() => this.pool.withdrawable());
-    await this.updateSender(balance, balance, amtPerSec, setReceivers, setProxies);
+    await this.updateSenderRawBalance(0, 0, 0, amtPerSec, setReceivers, setProxies);
+  }
+
+  async updateSenderRawBalance(
+    topUp: BigNumberish,
+    withdraw: BigNumberish,
+    balanceDelta: BigNumberish,
+    amtPerSec: BigNumberish,
+    setReceivers: ReceiverWeights,
+    setProxies: ReceiverWeights
+  ): Promise<ContractReceipt> {
+    const expectedAmtPerSec = await this.expectedAmtPerSec(amtPerSec);
+    const receiversAddr = receiverWeightsAddr(setReceivers);
+    const proxiesAddr = receiverWeightsAddr(setProxies);
+    const expectedReceivers = await this.expectedReceivers(receiversAddr, proxiesAddr);
+    const oldActiveReceivers = await this.getActiveReceivers();
+
+    const receipt = await this.submitChangingBalance(
+      () => this.submitUpdateSender(topUp, withdraw, amtPerSec, receiversAddr, proxiesAddr),
+      "updateSender",
+      balanceDelta
+    );
+
+    await this.expectAmtPerSec(expectedAmtPerSec);
+    await this.expectReceivers(expectedReceivers);
+    await this.expectUpdateSenderStreamsEvents(oldActiveReceivers, receipt);
+    return receipt;
   }
 
   async expectUpdateSenderBalanceUnchangedReverts(
@@ -344,24 +351,12 @@ abstract class PoolUser<Pool extends AnyPool> {
     return new Map(weights.map(({ receiver, weight }) => [receiver, weight]));
   }
 
-  async expectCollectableOnNextBlock(amount: number): Promise<void> {
-    await callOnNextBlock(async () => {
-      await this.expectCollectable(amount);
-    });
-  }
-
   async expectCollectable(amount: number): Promise<void> {
     const collectable = (await this.pool.collectable()).toNumber();
     expect(collectable).to.equal(
       amount,
       "The collectable amount is different from the expected amount"
     );
-  }
-
-  async expectWithdrawableOnNextBlock(amount: BigNumberish): Promise<void> {
-    await callOnNextBlock(async () => {
-      await this.expectWithdrawable(amount);
-    });
   }
 
   async expectWithdrawable(amount: BigNumberish): Promise<void> {
@@ -703,246 +698,15 @@ class DaiPoolUser extends Erc20PoolUser {
 }
 
 describe("EthPool", function () {
-  runCommonPoolTests(getEthPoolUsers);
-
-  it("Sends funds from a single sender to a single receiver", async function () {
-    const [sender, receiver] = await getEthPoolUsers();
-    await sender.updateSender(0, 100, 1, [[receiver, 1]], []);
-    await elapseTime(15);
-    // Sender had 16 seconds paying 1 per second
-    await sender.withdraw(84, 0);
-    await elapseTimeUntilCycleEnd();
-    // Sender had 16 seconds paying 1 per second
-    await receiver.collect(16);
-  });
-
-  it("Sends some funds from a single sender to two receivers", async function () {
-    const [sender, receiver1, receiver2] = await getEthPoolUsers();
-    await sender.updateSender(
-      0,
-      100,
-      2,
-      [
-        [receiver1, 1],
-        [receiver2, 1],
-      ],
-      []
-    );
-    await elapseTime(13);
-    // Sender had 14 seconds paying 2 per second
-    await sender.withdraw(72, 0);
-    await elapseTimeUntilCycleEnd();
-    // Receiver 1 had 14 seconds paying 1 per second
-    await receiver1.collect(14);
-    // Receiver 2 had 14 seconds paying 1 per second
-    await receiver2.collect(14);
-  });
-
-  it("Sends some funds from a two senders to a single receiver", async function () {
-    const [sender1, sender2, receiver] = await getEthPoolUsers();
-    await sender1.updateSender(0, 100, 1, [[receiver, 1]], []);
-    await sender2.updateSender(0, 100, 2, [[receiver, 1]], []);
-    await elapseTime(14);
-    // Sender2 had 15 seconds paying 2 per second
-    await sender2.withdraw(70, 0);
-    // Sender1 had 17 seconds paying 1 per second
-    await sender1.withdraw(83, 0);
-    await elapseTimeUntilCycleEnd();
-    // Receiver had 15 seconds paying 3 per second and 2 seconds paying 1 per second
-    await receiver.collect(47);
-  });
-
   it("Does not require receiver to be initialized", async function () {
     const [receiver] = await getEthPoolUsers();
     await receiver.collect(0);
-  });
-
-  it("Allows collecting funds while they are being sent", async function () {
-    const [sender, receiver] = await getEthPoolUsers();
-    await sender.updateSender(0, CYCLE_SECS + 10, 1, [], []);
-    await elapseTimeUntilCycleEnd();
-    await sender.setReceiver(receiver, 1);
-    await elapseTimeUntilCycleEnd();
-    // Receiver had CYCLE_SECS seconds paying 1 per second
-    await receiver.collect(CYCLE_SECS);
-    await elapseTime(6);
-    // Sender had CYCLE_SECS + 7 seconds paying 1 per second
-    await sender.withdraw(3, 0);
-    await elapseTimeUntilCycleEnd();
-    // Receiver had 7 seconds paying 1 per second
-    await receiver.collect(7);
-  });
-
-  it("Sends funds until they run out", async function () {
-    const [sender, receiver] = await getEthPoolUsers();
-    await sender.updateSender(0, 100, 9, [[receiver, 1]], []);
-    await elapseTime(9);
-    // Sender had 10 seconds paying 9 per second, funds are about to run out
-    await sender.expectWithdrawableOnNextBlock(10);
-    // Sender had 11 seconds paying 9 per second, funds have run out
-    await elapseTime(1);
-    await sender.expectWithdrawableOnNextBlock(1);
-    // Nothing more will be sent
-    await elapseTimeUntilCycleEnd();
-    await receiver.collect(99);
-    await sender.withdraw(1, 0);
-  });
-
-  it("Allows topping up while sending", async function () {
-    const [sender, receiver] = await getEthPoolUsers();
-    await sender.updateSender(0, 100, 10, [[receiver, 1]], []);
-    await elapseTime(5);
-    // Sender had 6 seconds paying 10 per second
-    await sender.topUp(40, 60);
-    await elapseTime(4);
-    // Sender had 5 seconds paying 10 per second
-    await sender.withdraw(10, 0);
-    await elapseTimeUntilCycleEnd();
-    // Receiver had 11 seconds paying 10 per second
-    await receiver.collect(110);
-  });
-
-  it("Allows topping up after funds run out", async function () {
-    const [sender, receiver] = await getEthPoolUsers();
-    await sender.updateSender(0, 100, 10, [[receiver, 1]], []);
-    await elapseTime(20);
-    // Sender had 10 seconds paying 10 per second
-    await sender.expectWithdrawable(0);
-    await elapseTimeUntilCycleEnd();
-    // Receiver had 10 seconds paying 10 per second
-    await receiver.expectCollectableOnNextBlock(100);
-    await sender.topUp(0, 60);
-    await elapseTime(4);
-    // Sender had 5 seconds paying 10 per second
-    await sender.withdraw(10, 0);
-    await elapseTimeUntilCycleEnd();
-    // Receiver had 15 seconds paying 10 per second
-    await receiver.collect(150);
   });
 
   it("Allows not changing amount per second", async function () {
     const [sender] = await getEthPoolUsers();
     await sender.setAmtPerSec(10);
     await sender.setAmtPerSec(sender.amtPerSecUnchanged);
-  });
-
-  it("Allows sending, which should end after timestamp 2^64", async function () {
-    const [sender, receiver] = await getEthPoolUsers();
-    const toppedUp = BigNumber.from(2).pow(64).add(5);
-    await sender.updateSender(0, toppedUp, 1, [[receiver, 1]], []);
-    await elapseTime(9);
-    // Sender had 10 seconds paying 1 per second
-    await sender.withdraw(toppedUp.sub(10), 0);
-    await elapseTimeUntilCycleEnd();
-    // Receiver had 10 seconds paying 1 per second
-    await receiver.collect(10);
-  });
-
-  it("Allows changing amount per second while sending", async function () {
-    const [sender, receiver] = await getEthPoolUsers();
-    await sender.updateSender(0, 100, 10, [[receiver, 1]], []);
-    await elapseTime(3);
-    await sender.setAmtPerSec(9);
-    await elapseTime(3);
-    // Sender had 4 seconds paying 10 per second and 4 seconds paying 9 per second
-    await sender.withdraw(24, 0);
-    await elapseTimeUntilCycleEnd();
-    // Receiver had 4 seconds paying 10 per second and 4 seconds paying 9 per second
-    await receiver.collect(76);
-  });
-
-  it("Sends amount per second rounded down to a multiple of weights sum", async function () {
-    const [sender, receiver] = await getEthPoolUsers();
-    await sender.updateSender(0, 100, 9, [[receiver, 5]], []);
-    await elapseTime(4);
-    // Sender had 5 seconds paying 5 per second
-    await sender.withdraw(75, 0);
-    await elapseTimeUntilCycleEnd();
-    // Receiver had 5 seconds paying 5 per second
-    await receiver.collect(25);
-  });
-
-  it("Sends nothing if amount per second is smaller than weights sum", async function () {
-    const [sender, receiver] = await getEthPoolUsers();
-    await sender.updateSender(0, 100, 4, [[receiver, 5]], []);
-    await elapseTime(4);
-    // Sender had no paying seconds
-    await sender.withdraw(100, 0);
-    await elapseTimeUntilCycleEnd();
-    // Receiver had no paying seconds
-    await receiver.collect(0);
-  });
-
-  it("Allows removing the last receiver weight when amount per second is zero", async function () {
-    const [sender, receiver1, receiver2] = await getEthPoolUsers();
-    await sender.updateSender(
-      0,
-      100,
-      12,
-      [
-        [receiver1, 1],
-        [receiver2, 1],
-        [receiver2, 0],
-      ],
-      []
-    );
-    // Sender had 1 seconds paying 12 per second
-    await sender.withdraw(88, 0);
-    await elapseTimeUntilCycleEnd();
-    // Receiver1 had 1 seconds paying 12 per second
-    await receiver1.collect(12);
-    // Receiver2 had 0 paying seconds
-    await receiver2.expectCollectable(0);
-  });
-
-  it("Allows changing receiver weights while sending", async function () {
-    const [sender, receiver1, receiver2] = await getEthPoolUsers();
-    await sender.updateSender(
-      0,
-      100,
-      12,
-      [
-        [receiver1, 1],
-        [receiver2, 1],
-      ],
-      []
-    );
-    await elapseTime(2);
-    await sender.setReceiver(receiver2, 2);
-    await elapseTime(3);
-    // Sender had 7 seconds paying 12 per second
-    await sender.withdraw(16, 0);
-    await elapseTimeUntilCycleEnd();
-    // Receiver1 had 3 seconds paying 6 per second and 4 seconds paying 4 per second
-    await receiver1.collect(34);
-    // Receiver2 had 3 seconds paying 6 per second and 4 seconds paying 8 per second
-    await receiver2.collect(50);
-  });
-
-  it("Allows removing receivers while sending", async function () {
-    const [sender, receiver1, receiver2] = await getEthPoolUsers();
-    await sender.updateSender(
-      0,
-      100,
-      10,
-      [
-        [receiver1, 1],
-        [receiver2, 1],
-      ],
-      []
-    );
-    await elapseTime(2);
-    await sender.setReceiver(receiver1, 0);
-    await elapseTime(3);
-    await sender.setReceiver(receiver2, 0);
-    await elapseTime(10);
-    // Sender had 7 seconds paying 10 per second
-    await sender.withdraw(30, 0);
-    await elapseTimeUntilCycleEnd();
-    // Receiver1 had 3 seconds paying 5 per second
-    await receiver1.collect(15);
-    // Receiver2 had 3 seconds paying 5 per second and 4 seconds paying 10 per second
-    await receiver2.collect(55);
   });
 
   it("Limits the total weights sum", async function () {
@@ -961,18 +725,6 @@ describe("EthPool", function () {
     );
   });
 
-  it("Limits the total receivers count", async function () {
-    const [sender, receiver] = await getEthPoolUsers();
-    const receivers = new Array(sender.senderWeightsCountMax)
-      .fill(0)
-      .map(() => ({ receiver: randomAddress(), weight: 1 }));
-    await submit(
-      sender.submitUpdateSender(0, 0, sender.amtPerSecUnchanged, receivers, []),
-      "updateSender"
-    );
-    await sender.expectSetReceiverReverts(receiver, 1, "Too many receivers");
-  });
-
   it("Allows batch setting multiple receivers and proxies", async function () {
     const [sender, receiver1, receiver2, receiver3, proxy1, proxy2] = await getEthPoolUsers();
     const proxyWeightBase = sender.proxyWeightsSum;
@@ -989,246 +741,6 @@ describe("EthPool", function () {
         [proxy2, 2 * proxyWeightBase],
       ]
     );
-  });
-
-  it("Allows sending via a proxy", async function () {
-    const [sender, proxy, receiver] = await getEthPoolUsers();
-    const proxyWeightBase = sender.proxyWeightsSum;
-    await proxy.setProxyWeights([[receiver, proxyWeightBase]]);
-    await sender.updateSender(
-      0,
-      proxyWeightBase * 2,
-      proxyWeightBase * 2,
-      [],
-      [[proxy, proxyWeightBase]]
-    );
-    await elapseTimeUntilCycleEnd();
-    await receiver.collect(proxyWeightBase * 2);
-  });
-
-  it("Allows sending to multiple proxies and receivers", async function () {
-    const [
-      sender,
-      proxy1,
-      proxy2,
-      receiver1,
-      receiver2,
-      receiver3,
-      receiver4,
-    ] = await getEthPoolUsers();
-    const proxyWeightBase = sender.proxyWeightsSum;
-    await proxy1.setProxyWeights([
-      [receiver1, proxyWeightBase * 0.75],
-      [receiver2, proxyWeightBase * 0.25],
-    ]);
-    await proxy2.setProxyWeights([[receiver3, proxyWeightBase]]);
-    await sender.updateSender(
-      0,
-      proxyWeightBase * 8,
-      proxyWeightBase * 4,
-      [[receiver4, proxyWeightBase]],
-      [
-        [proxy1, proxyWeightBase],
-        [proxy2, proxyWeightBase * 2],
-      ]
-    );
-    await elapseTimeUntilCycleEnd();
-    await receiver1.collect(proxyWeightBase * 1.5);
-    await receiver2.collect(proxyWeightBase * 0.5);
-    await receiver3.collect(proxyWeightBase * 4);
-    await receiver4.collect(proxyWeightBase * 2);
-  });
-
-  it("Allows a proxy to have multiple senders", async function () {
-    const [sender1, sender2, proxy, receiver] = await getEthPoolUsers();
-    const proxyWeightBase = sender1.proxyWeightsSum;
-    await proxy.setProxyWeights([[receiver, proxyWeightBase]]);
-    await sender1.updateSender(
-      0,
-      proxyWeightBase * 10,
-      proxyWeightBase,
-      [],
-      [[proxy, proxyWeightBase]]
-    );
-    await sender2.updateSender(
-      0,
-      proxyWeightBase * 10,
-      proxyWeightBase,
-      [],
-      [[proxy, proxyWeightBase]]
-    );
-    await elapseTime(9);
-    await elapseTimeUntilCycleEnd();
-    await receiver.collect(proxyWeightBase * 20);
-  });
-
-  it("Allows a sender to be updated while sending to a proxy", async function () {
-    const [sender, proxy, receiver1, receiver2] = await getEthPoolUsers();
-    const proxyWeightBase = sender.proxyWeightsSum;
-    await proxy.setProxyWeights([[receiver1, proxyWeightBase]]);
-    await sender.updateSender(
-      0,
-      proxyWeightBase * 20,
-      proxyWeightBase * 2,
-      [],
-      [[proxy, proxyWeightBase]]
-    );
-    await elapseTime(4);
-    await sender.setReceiver(receiver2, proxyWeightBase);
-    await elapseTime(3);
-    await elapseTimeUntilCycleEnd();
-    // 5 seconds of receiving `2 * proxyWeightBase` and 5 of receiving `proxyWeightBase`
-    await receiver1.collect(proxyWeightBase * 15);
-    // 5 seconds of receiving `proxyWeightBase`
-    await receiver2.collect(proxyWeightBase * 5);
-  });
-
-  it("Allows updating a part of proxy receivers list", async function () {
-    const [sender, proxy, receiver1, receiver2, receiver3, receiver4] = await getEthPoolUsers();
-    const proxyWeightBase = sender.proxyWeightsSum;
-    await proxy.setProxyWeights([
-      [receiver1, proxyWeightBase * 0.5],
-      [receiver2, proxyWeightBase * 0.5],
-    ]);
-    await proxy.setProxyWeights([
-      [receiver2, 0],
-      [receiver3, proxyWeightBase * 0.25],
-      [receiver4, proxyWeightBase * 0.25],
-    ]);
-    await sender.updateSender(0, proxyWeightBase, proxyWeightBase, [], [[proxy, proxyWeightBase]]);
-    await elapseTimeUntilCycleEnd();
-    await receiver1.collect(proxyWeightBase * 0.5);
-    await receiver2.expectCollectable(0);
-    await receiver3.collect(proxyWeightBase * 0.25);
-    await receiver4.collect(proxyWeightBase * 0.25);
-  });
-
-  it("Allows updating proxy in the first cycle of sending", async function () {
-    const [sender, proxy, receiver1, receiver2, receiver3, receiver4] = await getEthPoolUsers();
-    const proxyWeightBase = sender.proxyWeightsSum;
-    await proxy.setProxyWeights([
-      [receiver1, proxyWeightBase * 0.5],
-      [receiver2, proxyWeightBase * 0.5],
-    ]);
-    await sender.updateSender(0, 0, proxyWeightBase, [], [[proxy, proxyWeightBase]]);
-    // Sending spans for two cycles
-    await elapseTimeUntilCycleEnd();
-    await elapseTime(CYCLE_SECS / 2);
-    await sender.topUp(0, proxyWeightBase * CYCLE_SECS);
-    await proxy.setProxyWeights([
-      [receiver2, 0],
-      [receiver3, proxyWeightBase * 0.25],
-      [receiver4, proxyWeightBase * 0.25],
-    ]);
-    await elapseTime(CYCLE_SECS - 1);
-    await elapseTimeUntilCycleEnd();
-    // Receiving 0.5 proxyWeightBase during both cycles
-    await receiver1.collect(proxyWeightBase * 0.5 * CYCLE_SECS);
-    await receiver2.expectCollectable(0);
-    // Receiving 0.25 proxyWeightBase during both cycles
-    await receiver3.expectCollectable(proxyWeightBase * 0.25 * CYCLE_SECS);
-    // Receiving 0.25 proxyWeightBase during both cycles
-    await receiver4.expectCollectable(proxyWeightBase * 0.25 * CYCLE_SECS);
-  });
-
-  it("Allows updating proxy in the middle cycle of sending", async function () {
-    const [sender, proxy, receiver1, receiver2, receiver3, receiver4] = await getEthPoolUsers();
-    const proxyWeightBase = sender.proxyWeightsSum;
-    await proxy.setProxyWeights([
-      [receiver1, proxyWeightBase * 0.5],
-      [receiver2, proxyWeightBase * 0.5],
-    ]);
-    await sender.updateSender(0, 0, proxyWeightBase, [], [[proxy, proxyWeightBase]]);
-    // Sending spans for three cycles
-    await elapseTimeUntilCycleEnd();
-    const thirdCycleSeconds = CYCLE_SECS / 2;
-    const firstCycleSeconds = CYCLE_SECS - thirdCycleSeconds;
-    await elapseTime(thirdCycleSeconds);
-    await sender.topUp(0, proxyWeightBase * CYCLE_SECS * 2);
-    await elapseTime(CYCLE_SECS - 1);
-    await proxy.setProxyWeights([
-      [receiver2, 0],
-      [receiver3, proxyWeightBase * 0.25],
-      [receiver4, proxyWeightBase * 0.25],
-    ]);
-    await elapseTime(CYCLE_SECS - 1);
-    await elapseTimeUntilCycleEnd();
-    // Receiving 0.5 proxyWeightBase during all cycles
-    await receiver1.collect(proxyWeightBase * 0.5 * CYCLE_SECS * 2);
-    // Receiving 0.5 proxyWeightBase during the first cycle
-    await receiver2.collect(proxyWeightBase * 0.5 * firstCycleSeconds);
-    // Receiving 0.25 proxyWeightBase during the second and the last cycles
-    await receiver3.expectCollectable(proxyWeightBase * 0.25 * (CYCLE_SECS + thirdCycleSeconds));
-    // Receiving 0.25 proxyWeightBase during the second and the last cycles
-    await receiver4.expectCollectable(proxyWeightBase * 0.25 * (CYCLE_SECS + thirdCycleSeconds));
-  });
-
-  it("Allows updating proxy in the last cycle of sending", async function () {
-    const [sender, proxy, receiver1, receiver2, receiver3, receiver4] = await getEthPoolUsers();
-    const proxyWeightBase = sender.proxyWeightsSum;
-    await proxy.setProxyWeights([
-      [receiver1, proxyWeightBase * 0.5],
-      [receiver2, proxyWeightBase * 0.5],
-    ]);
-    await sender.updateSender(0, 0, proxyWeightBase, [], [[proxy, proxyWeightBase]]);
-    // Sending spans for two cycles
-    await elapseTimeUntilCycleEnd();
-    const secondCycleSeconds = CYCLE_SECS / 2;
-    const firstCycleSeconds = CYCLE_SECS - secondCycleSeconds;
-    await elapseTime(secondCycleSeconds);
-    await sender.topUp(0, proxyWeightBase * CYCLE_SECS);
-    await elapseTime(CYCLE_SECS - 1);
-    await proxy.setProxyWeights([
-      [receiver2, 0],
-      [receiver3, proxyWeightBase * 0.25],
-      [receiver4, proxyWeightBase * 0.25],
-    ]);
-    await elapseTimeUntilCycleEnd();
-    // Receiving 0.5 proxyWeightBase during both cycles
-    await receiver1.collect(proxyWeightBase * 0.5 * CYCLE_SECS);
-    // Receiving 0.5 proxyWeightBase during the first cycle
-    await receiver2.collect(proxyWeightBase * 0.5 * firstCycleSeconds);
-    // Receiving 0.25 proxyWeightBase during the second cycle
-    await receiver3.expectCollectable(proxyWeightBase * 0.25 * secondCycleSeconds);
-    // Receiving 0.25 proxyWeightBase during the second cycle
-    await receiver4.expectCollectable(proxyWeightBase * 0.25 * secondCycleSeconds);
-  });
-
-  it("Allows updating proxy in the cycle right after sending finishes", async function () {
-    const [sender, proxy, receiver1, receiver2, receiver3, receiver4] = await getEthPoolUsers();
-    const proxyWeightBase = sender.proxyWeightsSum;
-    await proxy.setProxyWeights([
-      [receiver1, proxyWeightBase * 0.5],
-      [receiver2, proxyWeightBase * 0.5],
-    ]);
-    await sender.updateSender(0, 0, proxyWeightBase, [], [[proxy, proxyWeightBase]]);
-    await elapseTimeUntilCycleEnd();
-    await sender.topUp(0, proxyWeightBase);
-    await elapseTimeUntilCycleEnd();
-    await proxy.setProxyWeights([
-      [receiver2, 0],
-      [receiver3, proxyWeightBase * 0.25],
-      [receiver4, proxyWeightBase * 0.25],
-    ]);
-    await receiver1.collect(proxyWeightBase * 0.5);
-    await receiver2.collect(proxyWeightBase * 0.5);
-    await receiver3.expectCollectable(0);
-    await receiver4.expectCollectable(0);
-  });
-
-  it("Allows an address to be a sender, a proxy and a receiver independently", async function () {
-    const [sender] = await getEthPoolUsers();
-    const proxyWeightBase = sender.proxyWeightsSum;
-    await sender.setProxyWeights([[sender, proxyWeightBase]]);
-    await sender.updateSender(
-      0,
-      proxyWeightBase * 2,
-      proxyWeightBase * 2,
-      [[sender, proxyWeightBase]],
-      [[sender, proxyWeightBase]]
-    );
-    await elapseTimeUntilCycleEnd();
-    await sender.collect(proxyWeightBase * 2);
   });
 
   it("Rejects adding a nonexistent proxy", async function () {
@@ -1267,25 +779,6 @@ describe("EthPool", function () {
     const proxyWeight = targetTotalWeight - (targetTotalWeight % proxyWeightBase);
     await sender.setReceiver(receiver, targetTotalWeight - proxyWeight);
     await sender.expectSetProxyReverts(proxy, proxyWeight, "Too much total receivers weight");
-  });
-
-  it("Limits the total proxy receivers count", async function () {
-    const [sender, proxy, receiver] = await getEthPoolUsers();
-    const proxyWeightBase = sender.proxyWeightsSum;
-    await proxy.setProxyWeights([[receiver, proxyWeightBase]]);
-    const receivers = new Array(sender.senderWeightsCountMax - sender.proxyWeightsCountMax)
-      .fill(0)
-      .map(() => ({ receiver: randomAddress(), weight: 1 }));
-    await submit(
-      sender.submitUpdateSender(0, 0, sender.amtPerSecUnchanged, receivers, []),
-      "updateSender"
-    );
-    // Total weight too big by 1
-    await sender.setReceiver(receiver, 1);
-    await sender.expectSetProxyReverts(proxy, proxyWeightBase, "Too many receivers");
-    // Total count maxed out
-    await sender.setReceiver(receiver, 0);
-    await sender.setProxy(proxy, proxyWeightBase);
   });
 
   it("Rejects creation of a proxy with an invalid weights sum", async function () {
@@ -1338,43 +831,13 @@ describe("EthPool", function () {
       "Too many proxy receivers"
     );
   });
-
-  it("Allows withdrawal of all funds", async function () {
-    const [sender, receiver] = await getEthPoolUsers();
-    const amtPerSec = 1;
-    await sender.updateSender(0, 10, amtPerSec, [[receiver, 1]], []);
-    const receivers = await sender.getAllReceivers();
-    await elapseTime(3);
-    const receipt = await sender.submitChangingBalance(
-      () => sender.submitUpdateSender(0, sender.withdrawAll, sender.amtPerSecUnchanged, [], []),
-      "updateSender",
-      6
-    );
-    await sender.expectWithdrawable(0);
-    await sender.expectAmtPerSec(amtPerSec);
-    await sender.expectReceivers(receivers);
-    await sender.expectUpdateSenderStreamsEvents(receivers, receipt);
-    await sender.expectUpdateSenderEvent(receipt, 0, amtPerSec);
-    await elapseTimeUntilCycleEnd();
-    // Receiver had 4 seconds paying 1 per second
-    await receiver.collect(4);
-  });
 });
 
 describe("Erc20Pool", function () {
-  runCommonPoolTests(getErc20PoolUsers);
-
   it("Allows withdrawal of funds", async function () {
     const [sender] = await getErc20PoolUsers();
     await sender.topUp(0, 10);
     await sender.withdraw(10, 0);
-  });
-
-  it("Allows collecting funds", async function () {
-    const [sender, receiver] = await getErc20PoolUsers();
-    await sender.updateSender(0, 10, 10, [[receiver, 1]], []);
-    await elapseTimeUntilCycleEnd();
-    await receiver.collect(10);
   });
 });
 
@@ -1384,76 +847,3 @@ describe("DaiPool", function () {
     await sender.updateSender(0, 10, 10, [[receiver, 1]], []);
   });
 });
-
-function runCommonPoolTests(getPoolUsers: () => Promise<PoolUser<AnyPool>[]>): void {
-  it("Allows full sender update with top up", async function () {
-    const [sender, proxy, receiver1, receiver2] = await getPoolUsers();
-    const proxyWeightBase = sender.proxyWeightsSum;
-    await proxy.setProxyWeights([[receiver2, proxyWeightBase]]);
-    await sender.updateSender(
-      0,
-      proxyWeightBase * 6,
-      proxyWeightBase * 3,
-      [[receiver1, proxyWeightBase]],
-      [[proxy, proxyWeightBase * 2]]
-    );
-    await elapseTimeUntilCycleEnd();
-    await receiver1.collect(proxyWeightBase * 2);
-    await receiver2.collect(proxyWeightBase * 4);
-  });
-
-  it("Allows full sender update with withdrawal", async function () {
-    const [sender, proxy, receiver1, receiver2] = await getPoolUsers();
-    const proxyWeightBase = sender.proxyWeightsSum;
-    await proxy.setProxyWeights([[receiver2, proxyWeightBase]]);
-    await sender.topUp(0, proxyWeightBase * 12);
-    await sender.updateSender(
-      proxyWeightBase * 12,
-      proxyWeightBase * 6,
-      proxyWeightBase * 3,
-      [[receiver1, proxyWeightBase]],
-      [[proxy, proxyWeightBase * 2]]
-    );
-    await elapseTimeUntilCycleEnd();
-    await receiver1.collect(proxyWeightBase * 2);
-    await receiver2.collect(proxyWeightBase * 4);
-  });
-
-  it("Allows sender update with top up and withdrawal", async function () {
-    const [sender] = await getPoolUsers();
-    const receipt = await sender.submitChangingBalance(
-      () => sender.submitUpdateSender(10, 3, sender.amtPerSecUnchanged, [], []),
-      "updateSender",
-      -7
-    );
-    await sender.expectWithdrawable(7);
-    await sender.expectAmtPerSec(0);
-    await sender.expectReceivers(new Map());
-    await sender.expectUpdateSenderStreamsEvents(new Map(), receipt);
-    await sender.expectUpdateSenderEvent(receipt, 7, 0);
-  });
-
-  it("Allows no sender update", async function () {
-    const [sender, proxy, receiver1, receiver2] = await getPoolUsers();
-    const proxyWeightBase = sender.proxyWeightsSum;
-    await proxy.setProxyWeights([[receiver2, proxyWeightBase]]);
-    await sender.updateSender(
-      0,
-      proxyWeightBase * 6,
-      proxyWeightBase * 3,
-      [[receiver1, proxyWeightBase]],
-      [[proxy, proxyWeightBase * 2]]
-    );
-    // Sender has sent proxyWeightBase * 3
-    await sender.updateSender(
-      proxyWeightBase * 3,
-      proxyWeightBase * 3,
-      sender.amtPerSecUnchanged,
-      [],
-      []
-    );
-    await elapseTimeUntilCycleEnd();
-    await receiver1.collect(proxyWeightBase * 2);
-    await receiver2.collect(proxyWeightBase * 4);
-  });
-}

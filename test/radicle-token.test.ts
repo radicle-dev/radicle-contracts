@@ -6,14 +6,12 @@ import {
   BytesLike,
   BigNumber,
   BigNumberish,
-  ContractReceipt,
   Signature,
 } from "ethers";
 import { expect } from "chai";
 import {
   expectBigNumberEq,
   expectTxFail,
-  mineBlocks,
   getSigningKey,
   submit,
   submitFailing,
@@ -24,20 +22,6 @@ async function getRadicleTokenSigners(): Promise<RadicleToken[]> {
   const signers = await ethers.getSigners();
   const token = await deployRadicleToken(signers[0], await signers[0].getAddress());
   return signers.map((signer) => token.connect(signer));
-}
-
-async function transfer(
-  from: RadicleToken,
-  to: RadicleToken,
-  amount: BigNumberish
-): Promise<ContractReceipt> {
-  const addr = await to.signer.getAddress();
-  return submit(from.transfer(addr, amount), "transfer");
-}
-
-async function delegate(from: RadicleToken, to: RadicleToken): Promise<ContractReceipt> {
-  const addr = await to.signer.getAddress();
-  return submit(from.delegate(addr), "delegate");
 }
 
 async function signDelegation(
@@ -73,18 +57,13 @@ async function expectDelegateBySigFail(
   v: BigNumberish,
   r: BytesLike,
   s: BytesLike,
-  // @ts-expect-error Unused until the proper cause can be retreived
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   expectedCause: string
 ): Promise<void> {
   const addr = await delegatee.signer.getAddress();
   await submitFailing(
     delegator.delegateBySig(addr, nonce, expiry, v, r, s),
     "delegateBySig",
-    // TODO replace when https://github.com/nomiclabs/hardhat/issues/1227 is fixed
-    // "RadicleToken::delegateBySig: " + expectedCause
-    "Transaction reverted and Hardhat couldn't infer the reason. " +
-      "Please report this to help us improve Hardhat."
+    "RadicleToken::delegateBySig: " + expectedCause
   );
 }
 
@@ -92,24 +71,6 @@ async function expectDelegation(token: RadicleToken, expectedDelegation: string)
   const address = await token.signer.getAddress();
   const actualDelegation = await token.delegates(address);
   expect(actualDelegation).to.equal(expectedDelegation, "Invalid delegation");
-}
-
-async function expectNumCheckpoint(token: RadicleToken, expected: number): Promise<void> {
-  const actual = await token.numCheckpoints(await token.signer.getAddress());
-  expectBigNumberEq(actual, expected, "Invalid number of checkpoints");
-}
-
-async function expectCheckpoints(
-  token: RadicleToken,
-  expected: Array<[number, BigNumberish]>
-): Promise<void> {
-  await expectNumCheckpoint(token, expected.length);
-  const addr = await token.signer.getAddress();
-  for (const [i, [expectedBlock, expectedVotes]] of expected.entries()) {
-    const [actualBlock, actualVotes] = await token.checkpoints(addr, i);
-    expectBigNumberEq(actualBlock, expectedBlock, `Invalid block number for checkpoint ${i}`);
-    expectBigNumberEq(actualVotes, expectedVotes, `Invalid number of votes for checkpoint ${i}`);
-  }
 }
 
 async function expectPriorVotes(
@@ -202,32 +163,6 @@ describe("Radicle Token", () => {
   });
 
   describe("numCheckpoints", () => {
-    it("returns the number of checkpoints for a delegate", async () => {
-      const [root, owner, delegatee, user] = await getRadicleTokenSigners();
-
-      await transfer(root, owner, 100);
-      await expectNumCheckpoint(delegatee, 0);
-
-      const receipt1 = await delegate(owner, delegatee);
-      await expectNumCheckpoint(delegatee, 1);
-
-      const receipt2 = await transfer(owner, user, 10);
-      await expectNumCheckpoint(delegatee, 2);
-
-      const receipt3 = await transfer(owner, user, 10);
-      await expectNumCheckpoint(delegatee, 3);
-
-      const receipt4 = await transfer(root, owner, 20);
-      await expectNumCheckpoint(delegatee, 4);
-
-      await expectCheckpoints(delegatee, [
-        [receipt1.blockNumber, 100],
-        [receipt2.blockNumber, 90],
-        [receipt3.blockNumber, 80],
-        [receipt4.blockNumber, 100],
-      ]);
-    });
-
     it("does not add more than one checkpoint in a block", async () => {
       // TODO depends on https://github.com/nomiclabs/hardhat/issues/1214
     });
@@ -240,49 +175,13 @@ describe("Radicle Token", () => {
       await expectTxFail(
         user.getPriorVotes(userAddr, 10e9),
         "getPriorVotes",
-        // TODO replace when https://github.com/nomiclabs/hardhat/issues/1227 is fixed
-        // "RadicleToken::getPriorVotes: not yet determined"
-        "Transaction reverted and Hardhat couldn't infer the reason. " +
-          "Please report this to help us improve Hardhat."
+        "RadicleToken::getPriorVotes: not yet determined"
       );
     });
 
     it("returns 0 if there are no checkpoints", async () => {
       const [user] = await getRadicleTokenSigners();
       await expectPriorVotes(user, 0, 0);
-    });
-
-    it("returns the latest block if >= last checkpoint block", async () => {
-      const [root, owner, delegatee] = await getRadicleTokenSigners();
-      await transfer(root, owner, 100);
-      const receipt = await delegate(owner, delegatee);
-      await mineBlocks(2);
-      await expectPriorVotes(delegatee, receipt.blockNumber - 1, 0);
-      await expectPriorVotes(delegatee, receipt.blockNumber + 0, 100);
-      await expectPriorVotes(delegatee, receipt.blockNumber + 1, 100);
-    });
-
-    it("generally returns the voting balance at the appropriate checkpoint", async () => {
-      const [root, owner, delegatee, user] = await getRadicleTokenSigners();
-      await transfer(root, owner, 100);
-      const receipt1 = await delegate(owner, delegatee);
-      await mineBlocks(2);
-      const receipt2 = await transfer(owner, user, 10);
-      await mineBlocks(2);
-      const receipt3 = await transfer(owner, user, 10);
-      await mineBlocks(2);
-      const receipt4 = await transfer(user, owner, 20);
-      await mineBlocks(2);
-
-      await expectPriorVotes(delegatee, receipt1.blockNumber - 1, 0);
-      await expectPriorVotes(delegatee, receipt1.blockNumber + 0, 100);
-      await expectPriorVotes(delegatee, receipt1.blockNumber + 1, 100);
-      await expectPriorVotes(delegatee, receipt2.blockNumber + 0, 90);
-      await expectPriorVotes(delegatee, receipt2.blockNumber + 1, 90);
-      await expectPriorVotes(delegatee, receipt3.blockNumber + 0, 80);
-      await expectPriorVotes(delegatee, receipt3.blockNumber + 1, 80);
-      await expectPriorVotes(delegatee, receipt4.blockNumber + 0, 100);
-      await expectPriorVotes(delegatee, receipt4.blockNumber + 1, 100);
     });
   });
 });
