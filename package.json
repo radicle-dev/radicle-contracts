@@ -24,6 +24,7 @@
     "@uniswap/v2-periphery": "^1.1.0-beta.0",
     "chai": "^4.3.3",
     "eslint": "^7.21.0",
+    "fast-glob": "^3.2.7",
     "hardhat": "^2.1.1",
     "prettier": "^2.2.1",
     "prettier-plugin-solidity": "^1.0.0-beta.5",
@@ -36,7 +37,7 @@
     "web3": "^1.3.5"
   },
   "scripts": {
-    "build": "hardhat compile && tsc",
+    "build": "hardhat compile && tsc && ts-node scripts/copy-contract-declaration-files.ts",
     "deploy:claims": "ts-node -e 'require(\"./src/deploy-to-network.ts\").claims();'",
     "deploy:ethFundingPool": "ts-node -e 'require(\"./src/deploy-to-network.ts\").ethFundingPool();'",
     "deploy:erc20FundingPool": "ts-node -e 'require(\"./src/deploy-to-network.ts\").erc20FundingPool();'",

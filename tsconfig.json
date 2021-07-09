@@ -2,6 +2,7 @@
   "include": [
     "src/**/*.ts",
     "test/**/*.ts",
+    "scripts/**/*.ts",
     "contract-bindings/**/*.ts"
   ],
   "exclude": ["node_modules"],
