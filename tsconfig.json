@@ -2,6 +2,7 @@
   "include": [
     "src/**/*.ts",
     "test/**/*.ts",
+    "scripts/**/*.js",
     "contract-bindings/**/*.ts"
   ],
   "exclude": ["node_modules"],
@@ -21,6 +22,8 @@
     // "lib": [],                             /* Specify library files to be included in the compilation. */
     // "allowJs": true,                       /* Allow javascript files to be compiled. */
     // "checkJs": true,                       /* Report errors in .js files. */
+    "allowJs": true,
+    "checkJs": true,
     // "jsx": "preserve",                     /* Specify JSX code generation: 'preserve', 'react-native', or 'react'. */
     "declaration": true,                      /* Generates corresponding '.d.ts' file. */
     "declarationMap": true,                   /* Generates a sourcemap for each corresponding '.d.ts' file. */
