@@ -1,2 +1,2 @@
-export { deployAll, DeployedContracts } from "./deploy";
+export * from "./deploy";
 export { daiPermitDigest } from "./utils";
