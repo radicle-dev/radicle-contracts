@@ -3,7 +3,6 @@ import {
   constants,
   providers,
   utils,
-  BigNumber,
   BigNumberish,
   BaseContract,
   ContractReceipt,
@@ -14,7 +13,6 @@ import { Dai } from "../contract-bindings/ethers/Dai";
 import { DaiPool } from "../contract-bindings/ethers/DaiPool";
 import { ENS } from "../contract-bindings/ethers/ENS";
 import { EthPool } from "../contract-bindings/ethers/EthPool";
-import { Exchange } from "../contract-bindings/ethers/Exchange";
 import { Governor } from "../contract-bindings/ethers/Governor";
 import { Phase0 } from "../contract-bindings/ethers/Phase0";
 import { RadicleToken } from "../contract-bindings/ethers/RadicleToken";
@@ -30,21 +28,14 @@ import {
   Erc20Pool__factory,
   Erc20Pool,
   EthPool__factory,
-  Exchange__factory,
-  FixedWindowOracle__factory,
   Governor__factory,
   IERC20__factory,
   IERC721__factory,
   Phase0__factory,
   RadicleToken__factory,
   Registrar__factory,
-  StablePriceOracle__factory,
   Timelock__factory,
-  UniswapV2Factory__factory,
-  IUniswapV2Pair__factory,
-  UniswapV2Router02__factory,
   VestingToken__factory,
-  WETH9__factory,
 } from "../contract-bindings/ethers";
 import { labelHash } from "./ens";
 
@@ -63,7 +54,6 @@ export interface DeployedContracts {
   rad: RadicleToken;
   dai: Dai;
   registrar: Registrar;
-  exchange: Exchange;
   ens: ENS;
   ethPool: EthPool;
   erc20Pool: Erc20Pool;
@@ -77,7 +67,6 @@ export async function deployAll(signer: Signer): Promise<DeployedContracts> {
   const dai = await deployTestDai(signer);
   const timelock = await deployTimelock(signer, signerAddr, 2 * 60 * 60 * 24);
   const gov = await deployGovernance(signer, timelock.address, rad.address, signerAddr);
-  const exchange = await deployExchange(rad, signer);
   const label = "radicle";
   const minCommitmentAge = 50;
   const ens = await deployTestEns(signer, label);
@@ -95,7 +84,7 @@ export async function deployAll(signer: Signer): Promise<DeployedContracts> {
   const daiPool = await deployDaiPool(signer, 10, dai.address);
   const claims = await deployClaims(signer);
 
-  return { gov, rad, dai, exchange, registrar, ens, ethPool, erc20Pool, daiPool, claims };
+  return { gov, rad, dai, registrar, ens, ethPool, erc20Pool, daiPool, claims };
 }
 
 export async function deployRadicleToken(signer: Signer, account: string): Promise<RadicleToken> {
@@ -179,75 +168,6 @@ export async function deployTimelock(
   return deployOk(new Timelock__factory(signer).deploy(admin, delay));
 }
 
-export async function deployExchange(radToken: RadicleToken, signer: Signer): Promise<Exchange> {
-  const radDecimals = await radToken.decimals();
-  const signerAddr = await signer.getAddress();
-
-  // Deploy tokens
-  // Any ERC20 token will be good
-  const usdToken = await deployRadicleToken(signer, signerAddr);
-  const usdDecimals = await usdToken.decimals();
-  const wethToken = await deployOk(new WETH9__factory(signer).deploy());
-  const wethDecimals = await wethToken.decimals();
-
-  // Deposit ETH into WETH contract
-  await submitOk(wethToken.deposit({ value: toDecimals(100, wethDecimals) }));
-
-  // Deploy Uniswap factory & router
-  const factory = await deployOk(new UniswapV2Factory__factory(signer).deploy(signerAddr));
-  const router = await deployOk(
-    new UniswapV2Router02__factory(signer).deploy(factory.address, wethToken.address)
-  );
-
-  /////////////////////////////////////////////////////////////////////////////
-
-  // Create USD/WETH pair
-  await factory.createPair(usdToken.address, wethToken.address);
-  const usdWethAddr = await factory.getPair(usdToken.address, wethToken.address);
-  const usdWethPair = IUniswapV2Pair__factory.connect(usdWethAddr, signer);
-
-  // Transfer USD into the USD/WETH pair.
-  await usdToken.transfer(usdWethAddr, toDecimals(10, usdDecimals));
-
-  // Transfer WETH into the USD/WETH pair.
-  await wethToken.transfer(usdWethAddr, toDecimals(10, wethDecimals));
-  await submitOk(usdWethPair.sync());
-
-  /////////////////////////////////////////////////////////////////////////////
-
-  // Create WETH/RAD pair
-  await factory.createPair(wethToken.address, radToken.address);
-  const wethRadAddr = await factory.getPair(wethToken.address, radToken.address);
-  const wethRadPair = IUniswapV2Pair__factory.connect(wethRadAddr, signer);
-
-  // Transfer RAD into the WETH/RAD pair.
-  await radToken.transfer(wethRadAddr, toDecimals(10, radDecimals));
-
-  // Transfer WETH into the WETH/RAD pair.
-  await wethToken.transfer(wethRadAddr, toDecimals(10, wethDecimals));
-  await submitOk(wethRadPair.sync());
-
-  /////////////////////////////////////////////////////////////////////////////
-
-  // Deploy price oracle
-  const fixedWindowOracle = await deployOk(
-    new FixedWindowOracle__factory(signer).deploy(
-      factory.address,
-      usdToken.address,
-      wethToken.address
-    )
-  );
-  const oracle = await deployOk(
-    new StablePriceOracle__factory(signer).deploy(fixedWindowOracle.address)
-  );
-
-  const exchange = await deployOk(
-    new Exchange__factory(signer).deploy(radToken.address, router.address, oracle.address)
-  );
-
-  return exchange;
-}
-
 export async function deployEthPool(signer: Signer, cycleSecs: number): Promise<EthPool> {
   return deployOk(new EthPool__factory(signer).deploy(cycleSecs));
 }
@@ -325,8 +245,4 @@ export async function submitOk(
   const receipt = await (await tx).wait();
   assert.strictEqual(receipt.status, 1, "transaction must be successful");
   return receipt;
-}
-
-function toDecimals(n: number, exp: number): BigNumber {
-  return BigNumber.from(n).mul(BigNumber.from(10).pow(exp));
 }

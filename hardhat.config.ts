@@ -30,9 +30,6 @@ const contracts = [
   "node_modules/@ensdomains/ens/build/contracts/ENSRegistry.json",
   "ethregistrar/build/contracts/BaseRegistrar.json",
   "ethregistrar/build/contracts/BaseRegistrarImplementation.json",
-  "node_modules/@uniswap/v2-core/build/UniswapV2Factory.json",
-  "node_modules/@uniswap/v2-periphery/build/UniswapV2Router02.json",
-  "node_modules/@uniswap/v2-periphery/build/WETH9.json",
 ];
 
 task(TASK_COMPILE).setAction(async (_, runtime, runSuper) => {
