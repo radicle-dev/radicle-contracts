@@ -7,7 +7,7 @@ import fastGlob from "fast-glob";
 //
 // See https://github.com/ethereum-ts/TypeChain/issues/430
 
-export async function main(): Promise<void> {
+async function main(): Promise<void> {
   const projectRoot = path.resolve(__dirname, "..");
   const declarationFiles = await fastGlob(["contract-bindings/ethers/**/*.d.ts"], {
     cwd: projectRoot,
@@ -16,3 +16,7 @@ export async function main(): Promise<void> {
     await fs.copyFile(path.resolve(projectRoot, file), path.resolve(projectRoot, "build", file));
   }
 }
+
+main().catch((err) => {
+  throw err;
+});
