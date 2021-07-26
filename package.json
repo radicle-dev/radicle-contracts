@@ -38,6 +38,7 @@
   "scripts": {
     "build": "hardhat compile && tsc && ts-node scripts/copy-contract-declaration-files.ts",
     "deploy:claims": "ts-node -e 'require(\"./src/deploy-to-network.ts\").claims();'",
+    "deploy:claimsV2": "ts-node -e 'require(\"./src/deploy-to-network.ts\").claimsV2();'",
     "deploy:ethFundingPool": "ts-node -e 'require(\"./src/deploy-to-network.ts\").ethFundingPool();'",
     "deploy:erc20FundingPool": "ts-node -e 'require(\"./src/deploy-to-network.ts\").erc20FundingPool();'",
     "deploy:daiFundingPool": "ts-node -e 'require(\"./src/deploy-to-network.ts\").daiFundingPool();'",

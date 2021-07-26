@@ -1,5 +1,6 @@
 import {
   deployClaims,
+  deployClaimsV2,
   deployDaiPool,
   deployErc20Pool,
   deployEthPool,
@@ -103,6 +104,11 @@ export async function daiFundingPool(): Promise<void> {
 export async function claims(): Promise<void> {
   const signer = await connectPrivateKeySigner();
   await deploy("claims", () => deployClaims(signer));
+}
+
+export async function claimsV2(): Promise<void> {
+  const signer = await connectPrivateKeySigner();
+  await deploy("claimsV2", () => deployClaimsV2(signer));
 }
 
 async function connectPrivateKeySigner(): Promise<Signer> {

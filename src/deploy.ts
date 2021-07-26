@@ -9,6 +9,7 @@ import {
   Signer,
 } from "ethers";
 import { Claims } from "../contract-bindings/ethers/Claims";
+import { ClaimsV2 } from "../contract-bindings/ethers/ClaimsV2";
 import { Dai } from "../contract-bindings/ethers/Dai";
 import { DaiPool } from "../contract-bindings/ethers/DaiPool";
 import { ENS } from "../contract-bindings/ethers/ENS";
@@ -22,6 +23,7 @@ import { VestingToken } from "../contract-bindings/ethers/VestingToken";
 import {
   BaseRegistrarImplementation__factory,
   Claims__factory,
+  ClaimsV2__factory,
   Dai__factory,
   DaiPool__factory,
   ENSRegistry__factory,
@@ -227,6 +229,10 @@ export async function deployPhase0(
 
 export async function deployClaims(signer: Signer): Promise<Claims> {
   return deployOk(new Claims__factory(signer).deploy());
+}
+
+export async function deployClaimsV2(signer: Signer): Promise<ClaimsV2> {
+  return deployOk(new ClaimsV2__factory(signer).deploy());
 }
 
 export async function deployTestDai(signer: Signer): Promise<Dai> {
