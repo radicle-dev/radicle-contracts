@@ -2,13 +2,16 @@ import {
   deployClaims,
   deployClaimsV2,
   deployDaiPool,
+  deployDummyGovernor,
   deployErc20Pool,
   deployEthPool,
+  deployPolygonProxy,
+  deployPolygonWithdrawer,
   deployTestEns,
   deployVestingToken,
   deployPhase0,
 } from "./deploy";
-import { BigNumber, Contract, Wallet, Signer, providers, utils } from "ethers";
+import { BigNumber, Contract, Wallet, providers, utils } from "ethers";
 import SigningKey = utils.SigningKey;
 import { keyInSelect, keyInYNStrict, question } from "readline-sync";
 import { ERC20__factory } from "../contract-bindings/ethers";
@@ -18,13 +21,13 @@ const INFURA_ID = "de5e2a8780c04964950e73b696d1bfb1";
 export async function testEns(): Promise<void> {
   console.log("The deployer will become an owner of the '', 'eth' and '<domain>.eth' domains,");
   console.log("the owner of the root ENS and the owner and controller of the 'eth' registrar");
-  const signer = await connectPrivateKeySigner();
+  const signer = await connectEthereumWallet();
   const label = askFor("an 'eth' subdomain to register");
   await deploy("ENS", () => deployTestEns(signer, label));
 }
 
 export async function phase0(): Promise<void> {
-  const signer = await connectPrivateKeySigner();
+  const signer = await connectEthereumWallet();
   const governorGuardian = askForAddress("of the governor guardian");
   const monadicAddr = askForAddress("of Monadic");
   const foundationAddr = askForAddress("of the Foundation");
@@ -53,7 +56,7 @@ export async function phase0(): Promise<void> {
 
 export async function vestingTokens(): Promise<void> {
   console.log("The deployer will be the one providing tokens for vesting");
-  const signer = await connectPrivateKeySigner();
+  const signer = await connectEthereumWallet();
   const tokenAddr = askForAddress("of the Radicle token contract");
   const token = ERC20__factory.connect(tokenAddr, signer);
   const decimals = await token.decimals();
@@ -82,45 +85,87 @@ export async function vestingTokens(): Promise<void> {
 }
 
 export async function ethFundingPool(): Promise<void> {
-  const signer = await connectPrivateKeySigner();
+  const signer = await connectEthereumWallet();
   const cycleSecs = askForNumber("the length of the funding cycle in seconds");
   await deploy("funding pool", () => deployEthPool(signer, cycleSecs));
 }
 
 export async function erc20FundingPool(): Promise<void> {
-  const signer = await connectPrivateKeySigner();
+  const signer = await connectEthereumWallet();
   const tokenAddr = askForAddress("of the ERC-20 token to used in the funding pool");
   const cycleSecs = askForNumber("the length of the funding cycle in seconds");
   await deploy("funding pool", () => deployErc20Pool(signer, cycleSecs, tokenAddr));
 }
 
 export async function daiFundingPool(): Promise<void> {
-  const signer = await connectPrivateKeySigner();
+  const signer = await connectEthereumWallet();
   const tokenAddr = askForAddress("of the DAI token to used in the funding pool");
   const cycleSecs = askForNumber("the length of the funding cycle in seconds");
   await deploy("funding pool", () => deployDaiPool(signer, cycleSecs, tokenAddr));
 }
 
 export async function claims(): Promise<void> {
-  const signer = await connectPrivateKeySigner();
+  const signer = await connectEthereumWallet();
   await deploy("claims", () => deployClaims(signer));
 }
 
 export async function claimsV2(): Promise<void> {
-  const signer = await connectPrivateKeySigner();
+  const signer = await connectEthereumWallet();
   await deploy("claimsV2", () => deployClaimsV2(signer));
 }
 
-async function connectPrivateKeySigner(): Promise<Signer> {
+export async function polygonProxy(): Promise<void> {
+  const polygonSigner = await connectPolygonWallet();
+  const ethereumSigner = await connectPolygonL1Wallet(polygonSigner);
+  const polygonNonce = await polygonSigner.getTransactionCount();
+  const ethereumNonce = await ethereumSigner.getTransactionCount();
+  if ((await polygonSigner.getTransactionCount()) != (await ethereumSigner.getTransactionCount())) {
+    throw `The account has different nonces on Polygon (${polygonNonce}) and on Ethereum (${ethereumNonce})`;
+  }
+  const ownerAddr = askForAddress("of the proxy owner on L1");
+  const rootChainManagerAddr = askForAddress("of the Polygon root chain manager");
+  const fxChildAddr = askForAddress("of the Polygon fx child");
+  await deploy("Polygon withdrawer", () =>
+    deployPolygonWithdrawer(ethereumSigner, ownerAddr, rootChainManagerAddr)
+  );
+  await deploy("Polygon proxy", () => deployPolygonProxy(polygonSigner, ownerAddr, fxChildAddr));
+}
+
+export async function dummyGovernor(): Promise<void> {
+  const signer = await connectEthereumWallet();
+  const adminAddr = askForAddress("of the governor admin");
+  await deploy("dummy governor", () => deployDummyGovernor(signer, adminAddr));
+}
+
+async function connectEthereumWallet(): Promise<Wallet> {
   const signingKey = askForSigningKey("to sign all the transactions");
-  const network = askForNetwork("to connect to");
-  const provider = new providers.InfuraProvider(network, INFURA_ID);
+  const provider = askForEthereumProvider();
+  return connectWallet(signingKey, provider);
+}
+
+async function connectPolygonWallet(): Promise<Wallet> {
+  const signingKey = askForSigningKey("to sign all the transactions");
+  const provider = askForPolygonProvider();
+  return connectWallet(signingKey, provider);
+}
+
+async function connectPolygonL1Wallet(polygonWallet: Wallet): Promise<Wallet> {
+  const network = await polygonWallet.provider.getNetwork();
+  const provider = getPolygonL1Provider(network.chainId);
+  return connectWallet(polygonWallet.privateKey, provider);
+}
+
+async function connectWallet(
+  signingKey: string | SigningKey,
+  provider: providers.Provider
+): Promise<Wallet> {
   const wallet = new Wallet(signingKey, provider);
-  const networkName = (await wallet.provider.getNetwork()).name;
+  const network = await wallet.provider.getNetwork();
+  const networkName = `${network.name} (chain ID ${network.chainId})`;
   console.log("Connected to", networkName, "using account", wallet.address);
 
   const defaultGasPrice = await provider.getGasPrice();
-  const gasPrice = askForGasPrice("to use in all transactions", defaultGasPrice);
+  const gasPrice = askForGasPrice(`to use in all ${networkName} transactions`, defaultGasPrice);
   provider.getGasPrice = function (): Promise<BigNumber> {
     return Promise.resolve(gasPrice);
   };
@@ -128,7 +173,7 @@ async function connectPrivateKeySigner(): Promise<Signer> {
   const superSendTransaction = provider.sendTransaction;
   provider.sendTransaction = async (txBytes): Promise<providers.TransactionResponse> => {
     const tx = utils.parseTransaction(await txBytes);
-    console.log("Sending transaction", tx.hash);
+    console.log("Sending transaction to", networkName, tx.hash);
     return superSendTransaction.call(provider, txBytes);
   };
 
@@ -149,8 +194,34 @@ function askForSigningKey(keyUsage: string): SigningKey {
   }
 }
 
-function askForNetwork(networkUsage: string): string {
-  const networks = ["mainnet", "ropsten", "rinkeby"];
+function askForEthereumProvider(): providers.Provider {
+  const network = askForNetwork("to connect to", ["mainnet", "ropsten", "rinkeby", "goerli"]);
+  return new providers.InfuraProvider(network, INFURA_ID);
+}
+
+function askForPolygonProvider(): providers.Provider {
+  const network = askForNetwork("to connect to", ["mainnet", "mumbai"]);
+  const clientUrl = `https://matic-${network}.chainstacklabs.com`;
+  return new providers.JsonRpcProvider(clientUrl);
+}
+
+function getPolygonL1Provider(polygonNetworkId: number): providers.Provider {
+  let network;
+  switch (polygonNetworkId) {
+    case 137:
+      network = "mainnet";
+      break;
+    case 80001:
+      network = "goerli";
+      break;
+    default:
+      throw `Unknown Polygon network ID '${polygonNetworkId}'`;
+  }
+  return new providers.InfuraProvider(network, INFURA_ID);
+}
+
+function askForNetwork(networkUsage: string, networks: string[]): string {
+  // const networks = ["mainnet", "ropsten", "rinkeby"];
   const query = "Enter the network " + networkUsage;
   const network = keyInSelect(networks, query, { cancel: false });
   return networks[network];

@@ -12,10 +12,13 @@ import { Claims } from "../contract-bindings/ethers/Claims";
 import { ClaimsV2 } from "../contract-bindings/ethers/ClaimsV2";
 import { Dai } from "../contract-bindings/ethers/Dai";
 import { DaiPool } from "../contract-bindings/ethers/DaiPool";
+import { DummyGovernor } from "../contract-bindings/ethers/DummyGovernor";
 import { ENS } from "../contract-bindings/ethers/ENS";
 import { EthPool } from "../contract-bindings/ethers/EthPool";
 import { Governor } from "../contract-bindings/ethers/Governor";
 import { Phase0 } from "../contract-bindings/ethers/Phase0";
+import { PolygonProxy } from "../contract-bindings/ethers/PolygonProxy";
+import { PolygonWithdrawer } from "../contract-bindings/ethers/PolygonWithdrawer";
 import { RadicleToken } from "../contract-bindings/ethers/RadicleToken";
 import { Registrar } from "../contract-bindings/ethers/Registrar";
 import { Timelock } from "../contract-bindings/ethers/Timelock";
@@ -26,6 +29,7 @@ import {
   ClaimsV2__factory,
   Dai__factory,
   DaiPool__factory,
+  DummyGovernor__factory,
   ENSRegistry__factory,
   Erc20Pool__factory,
   Erc20Pool,
@@ -34,6 +38,8 @@ import {
   IERC20__factory,
   IERC721__factory,
   Phase0__factory,
+  PolygonProxy__factory,
+  PolygonWithdrawer__factory,
   RadicleToken__factory,
   Registrar__factory,
   Timelock__factory,
@@ -237,6 +243,29 @@ export async function deployClaimsV2(signer: Signer): Promise<ClaimsV2> {
 
 export async function deployTestDai(signer: Signer): Promise<Dai> {
   return deployOk(new Dai__factory(signer).deploy());
+}
+
+export async function deployPolygonProxy(
+  signer: Signer,
+  ownerAddr: string,
+  fxChildAddr: string
+): Promise<PolygonProxy> {
+  return deployOk(new PolygonProxy__factory(signer).deploy(ownerAddr, fxChildAddr));
+}
+
+export async function deployPolygonWithdrawer(
+  signer: Signer,
+  ownerAddr: string,
+  rootChainManagerAddr: string
+): Promise<PolygonWithdrawer> {
+  return deployOk(new PolygonWithdrawer__factory(signer).deploy(ownerAddr, rootChainManagerAddr));
+}
+
+export async function deployDummyGovernor(
+  signer: Signer,
+  adminAddr: string
+): Promise<DummyGovernor> {
+  return deployOk(new DummyGovernor__factory(signer).deploy(adminAddr));
 }
 
 async function deployOk<T extends BaseContract>(contractPromise: Promise<T>): Promise<T> {
