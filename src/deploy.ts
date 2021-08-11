@@ -17,8 +17,8 @@ import { ENS } from "../contract-bindings/ethers/ENS";
 import { EthPool } from "../contract-bindings/ethers/EthPool";
 import { Governor } from "../contract-bindings/ethers/Governor";
 import { Phase0 } from "../contract-bindings/ethers/Phase0";
+import { PolygonExiter } from "../contract-bindings/ethers/PolygonExiter";
 import { PolygonProxy } from "../contract-bindings/ethers/PolygonProxy";
-import { PolygonWithdrawer } from "../contract-bindings/ethers/PolygonWithdrawer";
 import { RadicleToken } from "../contract-bindings/ethers/RadicleToken";
 import { Registrar } from "../contract-bindings/ethers/Registrar";
 import { Timelock } from "../contract-bindings/ethers/Timelock";
@@ -38,8 +38,8 @@ import {
   IERC20__factory,
   IERC721__factory,
   Phase0__factory,
+  PolygonExiter__factory,
   PolygonProxy__factory,
-  PolygonWithdrawer__factory,
   RadicleToken__factory,
   Registrar__factory,
   Timelock__factory,
@@ -253,12 +253,12 @@ export async function deployPolygonProxy(
   return deployOk(new PolygonProxy__factory(signer).deploy(ownerAddr, fxChildAddr));
 }
 
-export async function deployPolygonWithdrawer(
+export async function deployPolygonExiter(
   signer: Signer,
   ownerAddr: string,
   rootChainManagerAddr: string
-): Promise<PolygonWithdrawer> {
-  return deployOk(new PolygonWithdrawer__factory(signer).deploy(ownerAddr, rootChainManagerAddr));
+): Promise<PolygonExiter> {
+  return deployOk(new PolygonExiter__factory(signer).deploy(ownerAddr, rootChainManagerAddr));
 }
 
 export async function deployDummyGovernor(

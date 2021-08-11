@@ -5,8 +5,8 @@ import {
   deployDummyGovernor,
   deployErc20Pool,
   deployEthPool,
+  deployPolygonExiter,
   deployPolygonProxy,
-  deployPolygonWithdrawer,
   deployTestEns,
   deployVestingToken,
   deployPhase0,
@@ -125,10 +125,12 @@ export async function polygonProxy(): Promise<void> {
   const ownerAddr = askForAddress("of the proxy owner on L1");
   const rootChainManagerAddr = askForAddress("of the Polygon root chain manager");
   const fxChildAddr = askForAddress("of the Polygon fx child");
-  await deploy("Polygon withdrawer", () =>
-    deployPolygonWithdrawer(ethereumSigner, ownerAddr, rootChainManagerAddr)
+  await deploy("Polygon exiter on L1", () =>
+    deployPolygonExiter(ethereumSigner, ownerAddr, rootChainManagerAddr)
   );
-  await deploy("Polygon proxy", () => deployPolygonProxy(polygonSigner, ownerAddr, fxChildAddr));
+  await deploy("Polygon proxy on L2", () =>
+    deployPolygonProxy(polygonSigner, ownerAddr, fxChildAddr)
+  );
 }
 
 export async function dummyGovernor(): Promise<void> {

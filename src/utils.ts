@@ -50,8 +50,8 @@ function loadGovernorProposal(): string {
     transactions: Array<{
       target: string;
       value: string | number | undefined;
-      signature: string | undefined;
-      calldata: string | undefined;
+      signature: string;
+      args: unknown[] | undefined;
     }>;
   }
   const proposalPath = question(`Enter a file with JSON-encoded proposal in format
@@ -62,7 +62,9 @@ function loadGovernorProposal(): string {
       "target": "hex string, an address receiving the transaction",
       "value": "string or number, the value to send in the transaction, optional",
       "signature": "string, the called function signature to add to 'calldata', optional",
-      "calldata": "hex string, the function calldata, optional"
+      "args": [
+        "the called function arguments, optional, ignored if no signature is provided"
+      ]
     }
   ]
 }
@@ -73,11 +75,19 @@ function loadGovernorProposal(): string {
   const values = [];
   const signatures = [];
   const calldatas = [];
-  for (const { target, value, signature, calldata } of proposal.transactions) {
+  for (const { target, value, signature, args } of proposal.transactions) {
     targets.push(target);
     values.push(value ? value : 0);
-    signatures.push(signature ? signature : "");
-    calldatas.push(calldata ? calldata : "0x");
+    if (signature) {
+      const fragment = utils.FunctionFragment.from(signature);
+      const argsArray = args ? args : [];
+      const argsEncoded = utils.defaultAbiCoder.encode(fragment.inputs, argsArray);
+      signatures.push(fragment.format());
+      calldatas.push(argsEncoded);
+    } else {
+      signatures.push("");
+      calldatas.push("0x");
+    }
   }
   const args = [targets, values, signatures, calldatas, proposal.description];
   return new Governor__factory().interface.encodeFunctionData("propose", args);
