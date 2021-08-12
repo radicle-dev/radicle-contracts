@@ -33,3 +33,9 @@ Run one of the following commands and follow the instructions provided:
   - `Rinkeby`: `0x8c6E1E293346cc4cD31A1972D94DaDcecEd98997` at height 8572956
   - `Ropsten`: `0x22B39d2F5768CE402077223b3f871d9b4393A5f2` at height 10221422
   - `Mainnet`: not yet deployed
+
+### Radicle (RAD) token contracts
+
+  - `Rinkeby`: `0x7b6CbebC5646D996d258dcD4ca1d334B282e9948` at height 8665460
+  - `Ropsten`: `0x59b5eee36f5fa52400A136Fd4630Ee2bF126a4C0` at height 9724721
+  - `Mainnet`: `0x31c8EAcBFFdD875c74b94b077895Bd78CF1E64A3` at height 11863739
