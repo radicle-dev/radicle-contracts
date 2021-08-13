@@ -82,7 +82,7 @@ contract PolygonProxy is IFxMessageProcessor {
             if (bytes(signature).length == 0) {
                 callDataFull = callData;
             } else {
-                callDataFull = abi.encodeWithSignature(signature, callData);
+                callDataFull = abi.encodePacked(bytes4(keccak256(bytes(signature))), callData);
             }
             // solhint-disable avoid-low-level-calls
             (bool success, bytes memory returnData) = target.call{value: value}(callDataFull);
@@ -156,7 +156,7 @@ contract DummyGovernor {
         string[] memory signatures,
         bytes[] memory calldatas,
         string memory description
-    ) public {
+    ) public returns (uint256) {
         require(msg.sender == admin, "DummyGovernor::propose: the caller is not the admin");
         require(
             targets.length == values.length &&
@@ -175,12 +175,13 @@ contract DummyGovernor {
             if (bytes(signature).length == 0) {
                 callDataFull = callData;
             } else {
-                callDataFull = abi.encodeWithSignature(signature, callData);
+                callDataFull = abi.encodePacked(bytes4(keccak256(bytes(signature))), callData);
             }
             // solhint-disable avoid-low-level-calls
             (bool success, bytes memory returnData) = target.call{value: value}(callDataFull);
             require(success, string(returnData));
             emit Executed(target, value, signature, callData, returnData, description);
         }
+        return 0;
     }
 }

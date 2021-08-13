@@ -45,6 +45,7 @@
     "deploy:daiFundingPool": "ts-node -e 'require(\"./src/deploy-to-network.ts\").daiFundingPool();'",
     "deploy:testEns": "ts-node -e 'require(\"./src/deploy-to-network.ts\").testEns();'",
     "deploy:phase0": "ts-node -e 'require(\"./src/deploy-to-network.ts\").phase0();'",
+    "deploy:proposal": "ts-node -e 'require(\"./src/deploy-to-network.ts\").proposal();'",
     "deploy:polygonProxy": "ts-node -e 'require(\"./src/deploy-to-network.ts\").polygonProxy();'",
     "deploy:vestingTokens": "ts-node -e 'require(\"./src/deploy-to-network.ts\").vestingTokens();'",
     "deploy:playground": "ts-node -e 'require(\"./src/deploy-to-network.ts\").playground();'",

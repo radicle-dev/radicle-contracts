@@ -44,7 +44,7 @@ export function encodeProxyCommands(): void {
   console.log("Encoded proxy commands:\n" + data);
 }
 
-function loadGovernorProposal(): string {
+export function loadGovernorProposal(): string {
   interface Proposal {
     description: string;
     transactions: Array<{

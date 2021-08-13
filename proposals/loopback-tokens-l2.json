@@ -1,0 +1,14 @@
+{
+    "comment": "The L2 proxy commands to be executed as a part of the loopback-tokens proposal",
+    "description": "loopback tokens L2",
+    "transactions": [
+        {
+            "comment": "Send ERC-20 tokens back to L1",
+            "target": "0xfe4F5145f6e09952a5ba9e956ED0C25e3Fa4c7F1",
+            "signature": "withdraw(uint256 amount)",
+            "args": [
+                "10000000000000000"
+            ]
+        }
+    ]
+}

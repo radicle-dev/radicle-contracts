@@ -11,6 +11,7 @@ import {
   deployVestingToken,
   deployPhase0,
 } from "./deploy";
+import { loadGovernorProposal } from "./utils";
 import { BigNumber, Contract, Wallet, providers, utils } from "ethers";
 import SigningKey = utils.SigningKey;
 import { keyInSelect, keyInYNStrict, question } from "readline-sync";
@@ -137,6 +138,15 @@ export async function dummyGovernor(): Promise<void> {
   const signer = await connectEthereumWallet();
   const adminAddr = askForAddress("of the governor admin");
   await deploy("dummy governor", () => deployDummyGovernor(signer, adminAddr));
+}
+
+export async function proposal(): Promise<void> {
+  const signer = await connectEthereumWallet();
+  const governorAddr = askForAddress("of the governor");
+  const data = loadGovernorProposal();
+  const response = await signer.sendTransaction({ to: governorAddr, data });
+  await response.wait();
+  console.log("Success");
 }
 
 async function connectEthereumWallet(): Promise<Wallet> {
