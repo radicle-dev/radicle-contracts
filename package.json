@@ -51,6 +51,7 @@
     "deploy:playground": "ts-node -e 'require(\"./src/deploy-to-network.ts\").playground();'",
     "encode:governorProposal": "ts-node -e 'require(\"./src/utils.ts\").encodeGovernorProposal();'",
     "encode:proxyCommands": "ts-node -e 'require(\"./src/utils.ts\").encodeProxyCommands();'",
+    "encode:burnProof": "ts-node -e 'require(\"./src/deploy-to-network.ts\").createBurnProof();'",
     "prepare": "yarn prepack",
     "prepack": "yarn build",
     "test": "hardhat test",

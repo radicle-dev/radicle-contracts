@@ -149,6 +149,47 @@ export async function proposal(): Promise<void> {
   console.log("Success");
 }
 
+export async function createBurnProof(): Promise<void> {
+  // const { MaticPOSClient } = require("@maticnetwork/maticjs");
+
+  // // const polygonProvider = askForPolygonProvider();
+  // // const network = await polygonProvider.getNetwork();
+  // // const l1Provider = getPolygonL1Provider(network.chainId);
+
+  // const matic = new MaticPOSClient({
+  //   // maticProvider: new providers.Web3Provider(polygonProvider),
+  //   // parentProvider: new providers.Web3Provider(l1Provider),
+  // });
+  // console.log(matic);
+  // //const matic = new Matic({network:"mainnet", version: "v1"});
+  // const ERC20_TRANSFER_EVENT_SIG =
+  //   '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+  // const proof = await matic.posRootChainManager.exitManager.buildPayloadForExitHermoine(
+  //   '0xb580d143c27e98d13a5b54e3f432c4ce5e6e5c72c2ba5733d1b4175cec1da397', ERC20_TRANSFER_EVENT_SIG);
+  // console.log("Burn proof:", proof);
+
+  // const proof = await matic.posRootChainManager.exitManager.buildPayloadForExitHermoine(
+  //   BURN_HASH, ERC20_TRANSFER_EVENT_SIG);
+  // console.log("Burn proof:", proof);
+
+
+
+const Matic = require("@maticnetwork/maticjs").default;
+const matic = new Matic({
+  maticProvider: "https://matic-mumbai.chainstacklabs.com",
+  parentProvider: "https://goerli.infura.io/v3/de5e2a8780c04964950e73b696d1bfb1",
+  // rootChain: "0x2890bA17EfE978480615e330ecB65333b880928e",
+  // withdrawManager: "0x2923C8dD6Cdf6b2507ef91de74F1d5E0F11Eac53",
+  // depositManager: "0x7850ec290A2e2F40B82Ed962eaf30591bb5f5C96",
+  // registry: "0xeE11713Fe713b2BfF2942452517483654078154D",
+});
+const exit_manager = matic.withdrawManager.exitManager;
+const BURN_HASH = '0x3f8a6e175862601408288ecc5032b8f8b94b187ebc4eb82e744456c9bd3379c6';
+const SIG = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+const proof = await exit_manager.buildPayloadForExitHermoine(BURN_HASH, SIG);
+console.log("Burn proof:", proof);
+}
+
 async function connectEthereumWallet(): Promise<Wallet> {
   const signingKey = askForSigningKey("to sign all the transactions");
   const provider = askForEthereumProvider();
