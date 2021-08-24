@@ -8,14 +8,12 @@ The funding pool is a smart contract which creates real-time streams of donation
 One can start, alter or end the process of sending their funds at any time with immediate effect.
 The flow of funds is automatically maintained and steady over time.
 
-There are 3 roles present in the contract.
+There are 2 roles present in the contract.
 Any Ethereum address can simultaneously take on any of these roles.
 
 - **The sender**: has assets and chooses who do they want to send them to,
 how much, and at what rate
 - **The receiver:** receives funds from senders
-- **The proxy**: receives funds from senders,
-but immediately passes them to receivers of their choice
 
 ## The cycles
 
@@ -167,69 +165,3 @@ Finally, the next uncollected cycle number and the last cycle amount are updated
 In this example funds received from 4 cycles are being collected.
 The yellow fields are the stored state before the collection, green after it.
 The blue field is the collected value, which is going to be transferred to the sender's wallet.
-
-# The proxy
-
-Multiple senders can send funds to a proxy and the owner
-controls how these funds are further distributed to receivers.
-
-The proxy is configured only with a list of receivers with an associated weight.
-The sum of the receivers' weights must always be a constant value,
-which is defined in the contract and it's the same for all the proxies.
-A proxy, which has never been configured has no receivers and it's impossible to send funds via it.
-After the first configuration, it's impossible to disable the proxy, it's forever active.
-It can be reconfigured, but it must preserve the constant receivers' weights sum.
-
-Just like a receiver, the proxy has a mapping between the cycles and the deltas of received amounts.
-
-## Sending via a proxy
-
-When a sender starts sending funds to a proxy, it does so in two steps.
-First it applies changes to the proxy's deltas similarly to how it would do with a receiver.
-Next, it iterates over all the proxy's receivers and applies changes to
-their deltas as if they were directly funded by the sender.
-The funding rate applied to the receivers is split according to their weights in the proxy.
-
-For the example sake let's assume that the delta's proxy weights sum must be equal to 5.
-The proxy has 2 receivers: A with weight 3 and B with weight 2.
-The sender wants to start sending via the proxy 2 per second or 10 per cycle.
-It's 2 per cycle per proxy weight.
-
-![](how_the_pool_works_7.png)
-
-The proxy's deltas store amount per 1 proxy weight, which is 2.
-The receivers get their shares, A with weight 3 gets 6 and B with weight 2 gets 4 per cycle.
-
-When a sender stops sending, the process is reversed like with regular receivers.
-All the deltas are once again applied, but with negative values.
-
-## Updating a proxy
-
-When the list of proxy receivers is updated, all funding must be moved to a new set of receivers.
-That's when the proxy's deltas come useful.
-For each cycle and each receiver, the proxy can tell the total delta it has applied.
-It can then use this information to erase its future contributions from its receivers.
-
-![](how_the_pool_works_8.png)
-
-In this example, the receiver's weight is 3.
-To erase the future contribution, the proxy's deltas are multiplied by
-the receiver's weights and subtracted from the corresponding receiver's deltas.
-
-After removing its contributions from one set of receivers the proxy must reapply them on a new set.
-This is done in the same way as removal, but this time the deltas are added and not subtracted.
-
-### The current cycle problem
-
-Unlike the senders, the proxies store data with a per-cycle precision.
-When changing the set of receivers, a delta describing the current cycle may need to be applied.
-When it happens, it's unclear what part of the per-cycle delta should be moved,
-because some funds were sent before the current timestamp and some will be sent after it.
-
-![](how_the_pool_works_9.png)
-
-The solution is to ignore the problem and move the whole current cycle delta.
-Some funds already sent in the current cycle may disappear from one receiver and appear in another.
-Such behavior, however, is not of significant importance since
-the receivers have no access to funds coming from an unfinished cycle.
-The senders aren't strongly affected either, they already sent these funds and they trust the proxy.

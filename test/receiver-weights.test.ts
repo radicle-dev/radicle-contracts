@@ -14,8 +14,7 @@ async function expectSetWeightsWithInvalidAddressReverts(
   weightsTest: ReceiverWeightsTest,
   weights: {
     receiver: string;
-    weightReceiver: BigNumberish;
-    weightProxy: BigNumberish;
+    weight: BigNumberish;
   }[]
 ): Promise<void> {
   await submitFailing(weightsTest.setWeights(weights), "setWeights", "Invalid receiver address");
@@ -27,8 +26,7 @@ describe("ReceiverWeights", function () {
 
     await weightsTest.setWeights([]);
 
-    assert((await weightsTest.weightReceiverSumDelta()).eq(0));
-    assert((await weightsTest.weightProxySumDelta()).eq(0));
+    assert((await weightsTest.weightSumDelta()).eq(0));
     const weights = await weightsTest.getReceiverWeightsIterated();
     assert(weights.length == 0);
   });
@@ -37,15 +35,13 @@ describe("ReceiverWeights", function () {
     const weightsTest = await deployReceiverWeightsTest();
     const [addr1] = randomAddresses();
 
-    await weightsTest.setWeights([{ receiver: addr1, weightReceiver: 1, weightProxy: 0 }]);
+    await weightsTest.setWeights([{ receiver: addr1, weight: 1 }]);
 
-    assert((await weightsTest.weightReceiverSumDelta()).eq(1));
-    assert((await weightsTest.weightProxySumDelta()).eq(0));
+    assert((await weightsTest.weightSumDelta()).eq(1));
     const weights = await weightsTest.getReceiverWeightsIterated();
     assert(weights.length == 1);
     assert(weights[0].receiver == addr1);
-    assert(weights[0].weightReceiver == 1);
-    assert(weights[0].weightProxy == 0);
+    assert(weights[0].weight == 1);
   });
 
   it("Keeps multiple added items", async function () {
@@ -53,24 +49,20 @@ describe("ReceiverWeights", function () {
     const [addr1, addr2, addr3] = randomAddresses();
 
     await weightsTest.setWeights([
-      { receiver: addr1, weightReceiver: 1, weightProxy: 0 },
-      { receiver: addr2, weightReceiver: 2, weightProxy: 0 },
-      { receiver: addr3, weightReceiver: 4, weightProxy: 0 },
+      { receiver: addr1, weight: 1 },
+      { receiver: addr2, weight: 2 },
+      { receiver: addr3, weight: 4 },
     ]);
 
-    assert((await weightsTest.weightReceiverSumDelta()).eq(1 + 2 + 4));
-    assert((await weightsTest.weightProxySumDelta()).eq(0));
+    assert((await weightsTest.weightSumDelta()).eq(1 + 2 + 4));
     const weights = await weightsTest.getReceiverWeightsIterated();
     assert(weights.length == 3);
     assert(weights[0].receiver == addr3);
-    assert(weights[0].weightReceiver == 4);
-    assert(weights[0].weightProxy == 0);
+    assert(weights[0].weight == 4);
     assert(weights[1].receiver == addr2);
-    assert(weights[1].weightReceiver == 2);
-    assert(weights[1].weightProxy == 0);
+    assert(weights[1].weight == 2);
     assert(weights[2].receiver == addr1);
-    assert(weights[2].weightReceiver == 1);
-    assert(weights[2].weightProxy == 0);
+    assert(weights[2].weight == 1);
   });
 
   it("Allows removing the last item", async function () {
@@ -78,22 +70,19 @@ describe("ReceiverWeights", function () {
     const [addr1, addr2, addr3] = randomAddresses();
 
     await weightsTest.setWeights([
-      { receiver: addr1, weightReceiver: 1, weightProxy: 0 },
-      { receiver: addr2, weightReceiver: 2, weightProxy: 0 },
-      { receiver: addr3, weightReceiver: 4, weightProxy: 0 },
-      { receiver: addr1, weightReceiver: 0, weightProxy: 0 },
+      { receiver: addr1, weight: 1 },
+      { receiver: addr2, weight: 2 },
+      { receiver: addr3, weight: 4 },
+      { receiver: addr1, weight: 0 },
     ]);
 
-    assert((await weightsTest.weightReceiverSumDelta()).eq(1 + 2 + 4 - 1));
-    assert((await weightsTest.weightProxySumDelta()).eq(0));
+    assert((await weightsTest.weightSumDelta()).eq(1 + 2 + 4 - 1));
     const weights = await weightsTest.getReceiverWeightsIterated();
     assert(weights.length == 2);
     assert(weights[0].receiver == addr3);
-    assert(weights[0].weightReceiver == 4);
-    assert(weights[0].weightProxy == 0);
+    assert(weights[0].weight == 4);
     assert(weights[1].receiver == addr2);
-    assert(weights[1].weightReceiver == 2);
-    assert(weights[1].weightProxy == 0);
+    assert(weights[1].weight == 2);
   });
 
   it("Allows removing two last items", async function () {
@@ -101,20 +90,18 @@ describe("ReceiverWeights", function () {
     const [addr1, addr2, addr3] = randomAddresses();
 
     await weightsTest.setWeights([
-      { receiver: addr1, weightReceiver: 1, weightProxy: 0 },
-      { receiver: addr2, weightReceiver: 2, weightProxy: 0 },
-      { receiver: addr3, weightReceiver: 4, weightProxy: 0 },
-      { receiver: addr1, weightReceiver: 0, weightProxy: 0 },
-      { receiver: addr2, weightReceiver: 0, weightProxy: 0 },
+      { receiver: addr1, weight: 1 },
+      { receiver: addr2, weight: 2 },
+      { receiver: addr3, weight: 4 },
+      { receiver: addr1, weight: 0 },
+      { receiver: addr2, weight: 0 },
     ]);
 
-    assert((await weightsTest.weightReceiverSumDelta()).eq(1 + 2 + 4 - 1 - 2));
-    assert((await weightsTest.weightProxySumDelta()).eq(0));
+    assert((await weightsTest.weightSumDelta()).eq(1 + 2 + 4 - 1 - 2));
     const weights = await weightsTest.getReceiverWeightsIterated();
     assert(weights.length == 1);
     assert(weights[0].receiver == addr3);
-    assert(weights[0].weightReceiver == 4);
-    assert(weights[0].weightProxy == 0);
+    assert(weights[0].weight == 4);
   });
 
   it("Allows removing the first item", async function () {
@@ -122,22 +109,19 @@ describe("ReceiverWeights", function () {
     const [addr1, addr2, addr3] = randomAddresses();
 
     await weightsTest.setWeights([
-      { receiver: addr1, weightReceiver: 1, weightProxy: 0 },
-      { receiver: addr2, weightReceiver: 2, weightProxy: 0 },
-      { receiver: addr3, weightReceiver: 4, weightProxy: 0 },
-      { receiver: addr3, weightReceiver: 0, weightProxy: 0 },
+      { receiver: addr1, weight: 1 },
+      { receiver: addr2, weight: 2 },
+      { receiver: addr3, weight: 4 },
+      { receiver: addr3, weight: 0 },
     ]);
 
-    assert((await weightsTest.weightReceiverSumDelta()).eq(1 + 2 + 4 - 4));
-    assert((await weightsTest.weightProxySumDelta()).eq(0));
+    assert((await weightsTest.weightSumDelta()).eq(1 + 2 + 4 - 4));
     const weights = await weightsTest.getReceiverWeightsIterated();
     assert(weights.length == 2);
     assert(weights[0].receiver == addr2);
-    assert(weights[0].weightReceiver == 2);
-    assert(weights[0].weightProxy == 0);
+    assert(weights[0].weight == 2);
     assert(weights[1].receiver == addr1);
-    assert(weights[1].weightReceiver == 1);
-    assert(weights[1].weightProxy == 0);
+    assert(weights[1].weight == 1);
   });
 
   it("Allows removing two first items", async function () {
@@ -145,20 +129,18 @@ describe("ReceiverWeights", function () {
     const [addr1, addr2, addr3] = randomAddresses();
 
     await weightsTest.setWeights([
-      { receiver: addr1, weightReceiver: 1, weightProxy: 0 },
-      { receiver: addr2, weightReceiver: 2, weightProxy: 0 },
-      { receiver: addr3, weightReceiver: 4, weightProxy: 0 },
-      { receiver: addr2, weightReceiver: 0, weightProxy: 0 },
-      { receiver: addr3, weightReceiver: 0, weightProxy: 0 },
+      { receiver: addr1, weight: 1 },
+      { receiver: addr2, weight: 2 },
+      { receiver: addr3, weight: 4 },
+      { receiver: addr2, weight: 0 },
+      { receiver: addr3, weight: 0 },
     ]);
 
-    assert((await weightsTest.weightReceiverSumDelta()).eq(1 + 2 + 4 - 2 - 4));
-    assert((await weightsTest.weightProxySumDelta()).eq(0));
+    assert((await weightsTest.weightSumDelta()).eq(1 + 2 + 4 - 2 - 4));
     const weights = await weightsTest.getReceiverWeightsIterated();
     assert(weights.length == 1);
     assert(weights[0].receiver == addr1);
-    assert(weights[0].weightReceiver == 1);
-    assert(weights[0].weightProxy == 0);
+    assert(weights[0].weight == 1);
   });
 
   it("Allows removing the middle item", async function () {
@@ -166,22 +148,19 @@ describe("ReceiverWeights", function () {
     const [addr1, addr2, addr3] = randomAddresses();
 
     await weightsTest.setWeights([
-      { receiver: addr1, weightReceiver: 1, weightProxy: 0 },
-      { receiver: addr2, weightReceiver: 2, weightProxy: 0 },
-      { receiver: addr3, weightReceiver: 4, weightProxy: 0 },
-      { receiver: addr2, weightReceiver: 0, weightProxy: 0 },
+      { receiver: addr1, weight: 1 },
+      { receiver: addr2, weight: 2 },
+      { receiver: addr3, weight: 4 },
+      { receiver: addr2, weight: 0 },
     ]);
 
-    assert((await weightsTest.weightReceiverSumDelta()).eq(1 + 2 + 4 - 2));
-    assert((await weightsTest.weightProxySumDelta()).eq(0));
+    assert((await weightsTest.weightSumDelta()).eq(1 + 2 + 4 - 2));
     const weights = await weightsTest.getReceiverWeightsIterated();
     assert(weights.length == 2);
     assert(weights[0].receiver == addr3);
-    assert(weights[0].weightReceiver == 4);
-    assert(weights[0].weightProxy == 0);
+    assert(weights[0].weight == 4);
     assert(weights[1].receiver == addr1);
-    assert(weights[1].weightReceiver == 1);
-    assert(weights[1].weightProxy == 0);
+    assert(weights[1].weight == 1);
   });
 
   it("Allows removing two middle items", async function () {
@@ -189,24 +168,21 @@ describe("ReceiverWeights", function () {
     const [addr1, addr2, addr3, addr4] = randomAddresses();
 
     await weightsTest.setWeights([
-      { receiver: addr1, weightReceiver: 1, weightProxy: 0 },
-      { receiver: addr2, weightReceiver: 2, weightProxy: 0 },
-      { receiver: addr3, weightReceiver: 4, weightProxy: 0 },
-      { receiver: addr4, weightReceiver: 8, weightProxy: 0 },
-      { receiver: addr2, weightReceiver: 0, weightProxy: 0 },
-      { receiver: addr3, weightReceiver: 0, weightProxy: 0 },
+      { receiver: addr1, weight: 1 },
+      { receiver: addr2, weight: 2 },
+      { receiver: addr3, weight: 4 },
+      { receiver: addr4, weight: 8 },
+      { receiver: addr2, weight: 0 },
+      { receiver: addr3, weight: 0 },
     ]);
 
-    assert((await weightsTest.weightReceiverSumDelta()).eq(1 + 2 + 4 + 8 - 2 - 4));
-    assert((await weightsTest.weightProxySumDelta()).eq(0));
+    assert((await weightsTest.weightSumDelta()).eq(1 + 2 + 4 + 8 - 2 - 4));
     const weights = await weightsTest.getReceiverWeightsIterated();
     assert(weights.length == 2);
     assert(weights[0].receiver == addr4);
-    assert(weights[0].weightReceiver == 8);
-    assert(weights[0].weightProxy == 0);
+    assert(weights[0].weight == 8);
     assert(weights[1].receiver == addr1);
-    assert(weights[1].weightReceiver == 1);
-    assert(weights[1].weightProxy == 0);
+    assert(weights[1].weight == 1);
   });
 
   it("Allows removing all items", async function () {
@@ -214,16 +190,15 @@ describe("ReceiverWeights", function () {
     const [addr1, addr2, addr3] = randomAddresses();
 
     await weightsTest.setWeights([
-      { receiver: addr1, weightReceiver: 1, weightProxy: 0 },
-      { receiver: addr2, weightReceiver: 2, weightProxy: 0 },
-      { receiver: addr3, weightReceiver: 4, weightProxy: 0 },
-      { receiver: addr1, weightReceiver: 0, weightProxy: 0 },
-      { receiver: addr2, weightReceiver: 0, weightProxy: 0 },
-      { receiver: addr3, weightReceiver: 0, weightProxy: 0 },
+      { receiver: addr1, weight: 1 },
+      { receiver: addr2, weight: 2 },
+      { receiver: addr3, weight: 4 },
+      { receiver: addr1, weight: 0 },
+      { receiver: addr2, weight: 0 },
+      { receiver: addr3, weight: 0 },
     ]);
 
-    assert((await weightsTest.weightReceiverSumDelta()).eq(1 + 2 + 4 - 1 - 2 - 4));
-    assert((await weightsTest.weightProxySumDelta()).eq(0));
+    assert((await weightsTest.weightSumDelta()).eq(1 + 2 + 4 - 1 - 2 - 4));
     const weights = await weightsTest.getReceiverWeightsIterated();
     assert(weights.length == 0);
   });
@@ -234,25 +209,22 @@ describe("ReceiverWeights", function () {
     const [addr1] = randomAddresses();
 
     await weightsTest.setWeights([
-      { receiver: addr1, weightReceiver: 1, weightProxy: 0 },
-      { receiver: addr1, weightReceiver: 0, weightProxy: 0 },
+      { receiver: addr1, weight: 1 },
+      { receiver: addr1, weight: 0 },
     ]);
 
-    assert((await weightsTest.weightReceiverSumDelta()).eq(1 - 1));
-    assert((await weightsTest.weightProxySumDelta()).eq(0));
+    assert((await weightsTest.weightSumDelta()).eq(1 - 1));
     let weights = await weightsTest.getReceiverWeightsIterated();
     assert(weights.length == 0);
 
     // Add an item
-    await weightsTest.setWeights([{ receiver: addr1, weightReceiver: 2, weightProxy: 0 }]);
+    await weightsTest.setWeights([{ receiver: addr1, weight: 2 }]);
 
-    assert((await weightsTest.weightReceiverSumDelta()).eq(2));
-    assert((await weightsTest.weightProxySumDelta()).eq(0));
+    assert((await weightsTest.weightSumDelta()).eq(2));
     weights = await weightsTest.getReceiverWeightsIterated();
     assert(weights.length == 1);
     assert(weights[0].receiver == addr1);
-    assert(weights[0].weightReceiver == 2);
-    assert(weights[0].weightProxy == 0);
+    assert(weights[0].weight == 2);
   });
 
   it("Allows updating the first item", async function () {
@@ -260,25 +232,21 @@ describe("ReceiverWeights", function () {
     const [addr1, addr2, addr3] = randomAddresses();
 
     await weightsTest.setWeights([
-      { receiver: addr1, weightReceiver: 1, weightProxy: 0 },
-      { receiver: addr2, weightReceiver: 2, weightProxy: 0 },
-      { receiver: addr3, weightReceiver: 4, weightProxy: 0 },
-      { receiver: addr3, weightReceiver: 8, weightProxy: 0 },
+      { receiver: addr1, weight: 1 },
+      { receiver: addr2, weight: 2 },
+      { receiver: addr3, weight: 4 },
+      { receiver: addr3, weight: 8 },
     ]);
 
-    assert((await weightsTest.weightReceiverSumDelta()).eq(1 + 2 + 4 - 4 + 8));
-    assert((await weightsTest.weightProxySumDelta()).eq(0));
+    assert((await weightsTest.weightSumDelta()).eq(1 + 2 + 4 - 4 + 8));
     const weights = await weightsTest.getReceiverWeightsIterated();
     assert(weights.length == 3);
     assert(weights[0].receiver == addr3);
-    assert(weights[0].weightReceiver == 8);
-    assert(weights[0].weightProxy == 0);
+    assert(weights[0].weight == 8);
     assert(weights[1].receiver == addr2);
-    assert(weights[1].weightReceiver == 2);
-    assert(weights[1].weightProxy == 0);
+    assert(weights[1].weight == 2);
     assert(weights[2].receiver == addr1);
-    assert(weights[2].weightReceiver == 1);
-    assert(weights[2].weightProxy == 0);
+    assert(weights[2].weight == 1);
   });
 
   it("Allows updating the middle item", async function () {
@@ -286,25 +254,21 @@ describe("ReceiverWeights", function () {
     const [addr1, addr2, addr3] = randomAddresses();
 
     await weightsTest.setWeights([
-      { receiver: addr1, weightReceiver: 1, weightProxy: 0 },
-      { receiver: addr2, weightReceiver: 2, weightProxy: 0 },
-      { receiver: addr3, weightReceiver: 4, weightProxy: 0 },
-      { receiver: addr2, weightReceiver: 8, weightProxy: 0 },
+      { receiver: addr1, weight: 1 },
+      { receiver: addr2, weight: 2 },
+      { receiver: addr3, weight: 4 },
+      { receiver: addr2, weight: 8 },
     ]);
 
-    assert((await weightsTest.weightReceiverSumDelta()).eq(1 + 2 + 4 - 2 + 8));
-    assert((await weightsTest.weightProxySumDelta()).eq(0));
+    assert((await weightsTest.weightSumDelta()).eq(1 + 2 + 4 - 2 + 8));
     const weights = await weightsTest.getReceiverWeightsIterated();
     assert(weights.length == 3);
     assert(weights[0].receiver == addr3);
-    assert(weights[0].weightReceiver == 4);
-    assert(weights[0].weightProxy == 0);
+    assert(weights[0].weight == 4);
     assert(weights[1].receiver == addr2);
-    assert(weights[1].weightReceiver == 8);
-    assert(weights[1].weightProxy == 0);
+    assert(weights[1].weight == 8);
     assert(weights[2].receiver == addr1);
-    assert(weights[2].weightReceiver == 1);
-    assert(weights[2].weightProxy == 0);
+    assert(weights[2].weight == 1);
   });
 
   it("Allows updating the last item", async function () {
@@ -312,65 +276,27 @@ describe("ReceiverWeights", function () {
     const [addr1, addr2, addr3] = randomAddresses();
 
     await weightsTest.setWeights([
-      { receiver: addr1, weightReceiver: 1, weightProxy: 0 },
-      { receiver: addr2, weightReceiver: 2, weightProxy: 0 },
-      { receiver: addr3, weightReceiver: 4, weightProxy: 0 },
-      { receiver: addr1, weightReceiver: 8, weightProxy: 0 },
+      { receiver: addr1, weight: 1 },
+      { receiver: addr2, weight: 2 },
+      { receiver: addr3, weight: 4 },
+      { receiver: addr1, weight: 8 },
     ]);
 
-    assert((await weightsTest.weightReceiverSumDelta()).eq(1 + 2 + 4 - 1 + 8));
-    assert((await weightsTest.weightProxySumDelta()).eq(0));
+    assert((await weightsTest.weightSumDelta()).eq(1 + 2 + 4 - 1 + 8));
     const weights = await weightsTest.getReceiverWeightsIterated();
     assert(weights.length == 3);
     assert(weights[0].receiver == addr3);
-    assert(weights[0].weightReceiver == 4);
-    assert(weights[0].weightProxy == 0);
+    assert(weights[0].weight == 4);
     assert(weights[1].receiver == addr2);
-    assert(weights[1].weightReceiver == 2);
-    assert(weights[1].weightProxy == 0);
+    assert(weights[1].weight == 2);
     assert(weights[2].receiver == addr1);
-    assert(weights[2].weightReceiver == 8);
-    assert(weights[2].weightProxy == 0);
+    assert(weights[2].weight == 8);
   });
 
   it("Rejects setting weight for address 0", async function () {
     const weightsTest = await deployReceiverWeightsTest();
     await expectSetWeightsWithInvalidAddressReverts(weightsTest, [
-      { receiver: numberToAddress(0), weightReceiver: 1, weightProxy: 0 },
+      { receiver: numberToAddress(0), weight: 1 },
     ]);
-  });
-
-  it("Keeps items with only proxy weights set", async function () {
-    const weightsTest = await deployReceiverWeightsTest();
-    const [addr1] = randomAddresses();
-
-    await weightsTest.setWeights([{ receiver: addr1, weightReceiver: 0, weightProxy: 1 }]);
-
-    assert((await weightsTest.weightReceiverSumDelta()).eq(0));
-    assert((await weightsTest.weightProxySumDelta()).eq(1));
-    const weights = await weightsTest.getReceiverWeightsIterated();
-    assert(weights.length == 1);
-    assert(weights[0].receiver == addr1);
-    assert(weights[0].weightReceiver == 0);
-    assert(weights[0].weightProxy == 1);
-  });
-
-  it("Allows removing items with only proxy weights set", async function () {
-    const weightsTest = await deployReceiverWeightsTest();
-    const [addr1, addr2] = randomAddresses();
-
-    await weightsTest.setWeights([
-      { receiver: addr1, weightReceiver: 0, weightProxy: 1 },
-      { receiver: addr2, weightReceiver: 0, weightProxy: 2 },
-      { receiver: addr1, weightReceiver: 0, weightProxy: 0 },
-    ]);
-
-    assert((await weightsTest.weightReceiverSumDelta()).eq(0));
-    assert((await weightsTest.weightProxySumDelta()).eq(1 + 2 - 1));
-    const weights = await weightsTest.getReceiverWeightsIterated();
-    assert(weights.length == 1);
-    assert(weights[0].receiver == addr2);
-    assert(weights[0].weightReceiver == 0);
-    assert(weights[0].weightProxy == 2);
   });
 });
