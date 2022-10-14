@@ -22,20 +22,21 @@ Run one of the following commands and follow the instructions provided:
     yarn deploy:testEns
     yarn deploy:vestingTokens
 
-### Claims aka attestations contracts
+### Contracts deployed on Mainnet
 
-  - `Rinkeby`: `0x6c7b50EA0AFB02d73AE3846B3B9EBC31808300a6` at height 8573482
-  - `Ropsten`: `0xF8F22AA794DDA79aC0C634a381De0226f369bCCe` at height 9889396
-  - `Mainnet`: `0x4a7DFda4F2e9F062965cC87f775841fB58AEA83e` at height 12613127
+  - `claims`: `0x4a7DFda4F2e9F062965cC87f775841fB58AEA83e` at height 12613127
+  - `RAD token`: `0x31c8EAcBFFdD875c74b94b077895Bd78CF1E64A3` at height 11863739
 
-### Funding pool aka token streams
+### Contracts deployed on Goerli
 
-  - `Rinkeby`: `0x8c6E1E293346cc4cD31A1972D94DaDcecEd98997` at height 8572956
-  - `Ropsten`: `0x22B39d2F5768CE402077223b3f871d9b4393A5f2` at height 10221422
-  - `Mainnet`: not yet deployed
-
-### Radicle (RAD) token contracts
-
-  - `Rinkeby`: `0x7b6CbebC5646D996d258dcD4ca1d334B282e9948` at height 8665460
-  - `Ropsten`: `0x59b5eee36f5fa52400A136Fd4630Ee2bF126a4C0` at height 9724721
-  - `Mainnet`: `0x31c8EAcBFFdD875c74b94b077895Bd78CF1E64A3` at height 11863739
+  - `phase0`: `0x4a7DFda4F2e9F062965cC87f775841fB58AEA83e` at height 7751624
+  - `RAD token`: `0x3EE94D192397aAFAe438C9803825eb1Aa4402e09` at height 7751624
+  - `timelock`: `0x5815Ec3BaA7392c4b52A94F4Bda6B0aA09563428` at height 7751624
+  - `governor`: `0xc1DB01b8a3cD5ef52f7a83798Ee21EdC7A7e9668` at height 7751624
+  - `ENS registrar`: `0xD88303A92577bFDF5A82FddeF342F3A27A972405` at height 7757112
+    - controller -> radicle-goerli.eth
+  - `vesting`:
+    - `0x9c882463B02221b0558112dec05F60D5B3D99b6a`
+    - `0xAADcbc69f955523B0ff0A271229961E950538EbE`
+    - `0x27BCA0692e13C122E6Fc105b3974B5df7246D464`
+    - `0x13b2Fc1f601Fb72b86BFAB59090f22bB6E73005A`
